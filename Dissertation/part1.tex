@@ -24,8 +24,270 @@
 В данной работе я предлагаю метод опредления позы камеры, основанный на анализе размеров изображений объектов интереса в наблюдаемой сцене. Ключевым отличием предложенного метода от предыдущих работ является возможность учитывать ложные обнаружения объектов интереса в сцене и неточности локализации присутствующих объектов. Также предложенный метод отказывается от стандартного предположения о близости угла наклона к 
 $\frac{\pi}{2}$
 %$\slantfrac{\pi}{2}$
-и отсутсвии поворота камеры $r=0$.
- Я провел аппробацию предложенного метода, используя головы людей в качестве объектов интереса. 
+и отсутсвии поворота камеры $r=0$. 
+При аппробации предложенного метода использовались положения головы людей на изображении.
+
+\section{\uppercase{Introduction}}
+\label{sec:introduction}
+
+\noindent Automatic extraction of useful information from a video is the key computer vision task. Location and attributes of presented objects as well as action they perform are the most interesting parts of such information.
+
+If scene geometry and camera pose are known then these tasks become easier. Indeed, such information restricts available object locations. For example, cars usually can be found on the roads and their size on an image are restricted by the camera location and orientation, i.e.~ it's pose. On the other hand, modern object detection algorithms assume unknown scene geometry and camera pose. Therefore, they have to search objects of any size at all locations. It leads to false detections and high computation time. If only camera calibration is known we can reduce influence of these factors.
+
+Unfortunately, in practice it is hard to estimate camera calibration parameters. The most robust methods require interaction with a calibration template. It makes calibration of hundreds of thousands of surveillance cameras intractable. In this paper we propose an algorithm that automatically solves this task for surveillance cameras with known focal length. Our algorithms don't require any special calibration templates and directly infer parameters from surveillance video. The constructed algorithm takes object detector results as the input.
+
+We apply supervised machine learning to solve calibration task. Requirement of huge labeled dataset restricts implementation of machine learning techniques in practice. We show how to construct synthetic dataset to solve the calibration task. It allows estimation camera parameters even if there is no real labeled dataset at all.
+
+We show that camera pose can be estimated from people observation in surveillance video. We construct a calibration algorithm that uses head detector results and known camera focal length as the input. As opposed to previous works in the area, we don't assume the "perfect" people detector and implicitly take into account its object localization error and false detections. Our algorithm makes the following assumptions about the observed scene:
+\begin{enumerate}
+	\item The camera is static, i.e.\ it does not change location, view direction and focal length;
+	\item Camera observe "flat" scene, i.e.\ ground is a plane;
+	\item All people stand on the ground plane;
+	\item All people presented in the scene has the same height (1.75 meters).
+\end{enumerate}
+The assumption of a single flat ground plane is a standard for the works on surveillance calibration \cite{liu2011surveillance,chen2007accurate,dubska2014automatic,den2015automatic,micusik2010simultaneous}.
+
+In real surveillance scenario camera produces continuous video stream and detector localizes thousands of objects per minute. In practice the set of detections contains false positives. Therefore, the calibration algorithm should a) work with input of various length and b) be robust to false positive. We show that the proposed calibration algorithm meets these requirements.
+
+Our main contributions are:
+\begin{enumerate}
+	\item We propose a technique for construction a synthetic dataset for scene geometry understanding;
+	\item We construct an algorithm for the camera pose estimation from people observation;
+	\item The introduced algorithm is shown to be robust to noise in the input data and allows input of any length.
+\end{enumerate}
+
+\section{\uppercase{Related Work}}
+\label{sec:related}
+
+\noindent Automatic surveillance camera pose estimation task has a long history of research \cite{caprile1990using,li2010simultaneous,liu2011surveillance,chen2007accurate,pflugfelder2007people,den2015automatic,puwein2012ptz,dubska2014automatic}. The authors \cite{puwein2012ptz} utilizes key points tracking to estimate camera focal length and relative location during rotation and zooming of a PTZ camera. Unfortunately, most of surveillance cameras are static, i.e.\ they do not change location, view direction and field of view. This limitation significantly reduces information that can be extracted from video.
+
+The paper \cite{caprile1990using} presents relationships between a camera focal length and location of three orthogonal vanishing points (TOVPs). Thus, the most of later works reduces the internal camera calibration task to localization of TOVPs. The authors \cite{li2010simultaneous} presents a method to exploit vanishing points from static scene structures, such as buildings. However, they cannot be applied in scenes without structures. The paper \cite{dubska2014automatic} uses motion direction of vehicles to extract horizontal vanishing point. The papers \cite{chen2007accurate,liu2011surveillance,den2015automatic} use people observations to estimate vertical vanishing point and horizon line. In addition, this information provides camera orientation in world coordinates. They use known people height to estimate camera location. The authors \cite{den2015automatic} assume constant people height (1.8 meters) in the scene and the authors \cite{liu2011surveillance} use height distribution measured for European populations \cite{visscher2008sizing}. The methods \cite{chen2007accurate,liu2011surveillance} use orientation of people foreground blob to estimate vertical vanishing point. The quality of these methods significantly depends on accuracy of extracted masks. Moreover, these works approximates people with a vertical sticks. The proposed approximation is inaccurate especially when tilt angle close to $\pi$ (the camera view is an opposite top direction). Thus, we use a detector to estimate head size at different locations of the input image.
+
+\section{\uppercase{Proposed Model}}
+\label{sec:proposed}
+
+\noindent We divide this section into several parts. In subsection \ref{sec:dataset} we propose a technique for synthetic dataset construction. Subsection \ref{sec:lognormloss} introduces our LogNormLoss layer for CNN that allows learning probabilistic prediction for regression tasks. In subsection \ref{sec:calibration} we propose an algorithm for camera calibration.
+
+%------------------------------------------------------------------------- 
+\subsection{Dataset}
+\label{sec:dataset}
+
+\noindent The proposed algorithm requires a labeled dataset for training. We found that it is hard to use real surveillance videos for this task. Most of such data does not contain calibration parameters and groundtruth people location. On the other hand, computer graphics allows construction synthetic dataset of an arbitrary size with specified parameters.
+
+We construct synthetic dataset with 100373 scenes. Each scene is a ground plane with people standing on it and camera placed above. Scenes are differ in the intrinsic and extrinsic parameters of the camera and location of captured people. The proposed algorithm uses only head locations in form of bounding boxes and does not need original images. Thus our dataset contains 1) camera calibration parameters; 2) location of people on the ground plane and 3) head detector results. We describe used camera, human models and applied head detector below.
+
+\subsubsection{Camera Model}
+
+\noindent Camera calibration contains intrinsic and extrinsic parameters. World coordinate system specifies extrinsic parameters. Thus we choose an unified world coordinate system for all scenes. It specifies ground as a plane $z = 0$. We assume that a camera is placed on the Z axis. Therefore, the height $h$ is the only parameter of a camera location.
+
+The view direction of the camera is specified by two angles: tilt $t$ and roll $r$ of the camera. These angles correspond to the second and third components of the Z-X-Z Euler angles. The first Euler angle is assumed to be zero as it specifies camera rotation around Z axis.
+
+In the constructed synthetic dataset cameras record FullHD frames ($1920\times1080$). A principal point is assumed to be in the center of captured images and a camera has square pixels with aspect ratio equal to 1. In such assumptions the focal length $f$ (measured in pixels) is the only intrinsic parameter of the camera.
+
+Each scene is parametrized by camera calibration parameters. We sample these parameters from uniform distributions with the boundaries specified in the таблице \ref{tab:params}.
+
+\subsubsection{Human Model}
+
+\noindent The only objects in our dataset are people and we apply human shape model~\cite{pishchulin2015building} to visualize them. Our dataset contains people in standard pose and constant shape. To make the dataset easier all people have the same height (1.75 meters). Thus only location on the ground plane specifies human shape.
+
+We construct at least 200 people in different locations for each scene. We place each person in such a way that the applied detector could find him. In addition, we reject scenes where the detector cannot find people.
+
+\begin{table} [htbp]
+	\centering
+	\captionsetup{width=15cm}
+	\caption{Распределение параметров позы камеры в синтетической выборке.}\label{tab:params}%
+	\begin{tabular}{|c|c|c|c|}
+		\hline
+		Parameter & Caption & Minimum value & Maximum value\\
+		\hline
+		\hline
+		$h$ & height (m) & 0 & 20 \\
+		$t$ & tilt (rad) & $\frac{\pi}{2}$ & $\frac{11\pi}{12}$ \\
+		$r$ & roll (rad) & $-\frac{\pi}{12}$ & $\frac{\pi}{12}$ \\
+		$f$ & focal length (pixels) & 0 & 5000 \\
+		\hline
+	\end{tabular}
+\end{table}
+
+\subsubsection{Detector}
+
+\noindent We treat detector results as features extracted from a scene.
+Modern person detectors are sensitive to camera angle and occlusions, therefore it cannot find people in some scenes. But heads are visible in most surveillance scenarios. Thus the proposed features consist of head bounding boxes.
+
+Indeed, human model \cite{pishchulin2015building} provides the true head location in synthetic data. However, we apply the head detector even to synthetic images. It allows us to avoid modeling of the detector noise and bias in head localization. We assume that these factors are equal on real data and the proposed synthetic datasets. Thus the distributions of features extracted from the real and synthetic data becomes closer.
+
+We use fast implementation \cite{prisacariu2009fasthog} of head detector. It has two significant advantages over the modern detectors: 1) low computation time of the detector allows construction the huge dataset in reasonable amount of time and 2) it finds heads even if we do not model texture of the person skin.
+
+%------------------------------------------------------------------------- 
+\subsection{LogNormLoss Layer}
+\label{sec:lognormloss}
+
+
+\begin{figure*}[!t]
+	\centering
+	\includegraphics[width=\textwidth]{camera_pose/1}
+	\caption{Схема использованной нейронной сети для предсказания параметров позы камеры.}
+	\label{fig:net}
+\end{figure*}
+
+
+We use Convolutional Neural Network (CNN) to estimate the calibration parameters. The Euclidean loss is a traditional loss layer for such regression tasks. It assumes equal "penalty rules" for all predictions. In some cases it leads to inaccurate results. Imagine, the input data have outliers or huge noise level. A regression with the Euclidean loss tends to bias true predictions to compensate shift from groundtruth on such data. On the contrary, if the used model can indicate how "good" the input data are, it can overcome this drawback. The proposed LogNormLoss layer is a solution for this task. It estimates the predicted value and confidence of the prediction by minimizing negative logarithm of normal distribution density function.
+
+Formally, LogNormLoss layer assumes that the true value $y$ is normally distributed with unknown mean $\mu$ and variance $\Sigma$:
+\begin{equation}
+p(y|x, \Theta) = N(y|\mu, \Sigma)
+\end{equation}
+It estimates the parameters $\mu$ and $\Sigma$ using maximization of the likelihood. If we assume that these parameters do not depend on the input data $x$, the layer describes all targets $y$ with a single Gaussian. On the other hand, CNN with LogNormLoss layer trains $\mu$ and $\Sigma$ as functions of the input data $x$ and model parameters $\Theta$.
+
+The proposed loss layer has 3 inputs. The layer interprets first two inputs $\mu$ and $s$ as a mean and logarithm of a variance of normal distribution. Thus, the loss is a negative logarithm of a normal distribution density function:
+\begin{equation}
+L(y |\mu, s) = -\log N(y|\mu, e^{s} + \epsilon)
+\end{equation}
+We use $\epsilon = 1e-6$ to prevent overfitting to a single train sample.
+
+If y is a vector we assume independence of the different components of the prediction:
+\begin{equation}
+L(y | \mu, s) = -\log N(y|\mu, diag\left(e^{s}\right) + \epsilon I)  \label{eq:norm}
+\end{equation}
+
+The $s$ parameter can be interpreted as a predicted error. The higher value it takes the fewer model confidence is. If the $s$ values are equal for all input data $x$, this loss equal to Euclidean loss. But if they depends on the observed data, CNN trains to estimate accuracy of the predicted mean value $\mu$ for the current input $x$.
+
+Derivatives of the LogNormLoss layer has simple analytical form:
+\begin{align}
+\frac{\partial L(y | \mu, s)}{\partial \mu_j} &= 
+\frac{\mu_j - y^j}{e^{s_j} + \epsilon}
+\label{eq:der_mu} \\
+\frac{\partial L(y | \mu, s)}{\partial s_j} &= 
+\frac{1}{2}\frac{e^{s_j}}{e^{s_j} + \epsilon}
+\left(1 - \frac{(\mu_j - y^j) ^ 2}{e^{s_j} + \epsilon}\right)  \label{eq:der_sigma}
+\end{align}
+
+Equations \eqref{eq:norm}, \eqref{eq:der_mu} and \eqref{eq:der_sigma} allows efficient implementation of the layer for modern GPUs. We implement the LogNormLoss layer in the Caffe framework \cite{jia2014caffe}.
+
+\subsection{Calibration Model}
+\label{sec:calibration}
+
+Our main goal is construction of calibration algorithm that predicts camera pose from people observations in the scene. It takes the bounding boxes of detected human heads and focal length (in pixels) as the input and predicts camera extrinsic parameters and confidence of the prediction.
+
+We make several assumptions of the observed data. All people in the scene have the same height and stand on the ground plane. Thus all heads lie on a plane in a world coordinates. Therefore, if 3 found heads do not lie in a single line in the image, we can analytically estimate camera extrinsic parameters. Nevertheless, noise and quantization makes this solution inaccurate. Therefore, we construct each input sample from 64 head locations and solve the regression task using CNN.
+
+The first problem we solve is how to present head detection to CNN. Initially the input head locations in a sample do not have any ordering. Hence, there are $64!$ permutations of the same head locations in a sample. If we use data without any ordering the constructed model should adapt to all of these permutations. To solve this problem we sort heads by size and arrange them in a grid. Consequently, the head locations forms a tensor of size $3\times8\times8$, where each head bounding box is presented by location of its top left corner and size.
+
+The introduced structure of the sample allows us to use convolutional layers (см. рисунок~\ref{fig:net}). We apply 3 convolutional layers with ReLu non-linearity. Each convolution has size of $3\times3$. These layers allow 1) extract information from distant objects (correspond to convolution of columns) and 2) be robust to noise in data (convolution adjacent objects in a column).
+
+After the third convolution and ReLu non-linearity we concatenate the constructed features with the camera focal length. The model applies five fully connected layers with non-linearity to this features. The model uses LogNormLoss layer to evaluate quality of the predicted camera location $\mu$ and its error $s$.
+
+It is important to notice, as we use the detected bounding boxes, the proposed algorithm becomes sensitive to the applied detector, i.e.\ it fits to the detector. Thus, we should update synthetic dataset and repeat training of the CNN, if we want to use another detector. On the other hand, this solution allows us to skip modeling of the detector noise. Moreover, if results of another detector is similar to the ours, it is not necessary to train the model from scratch, the proposed CNN gives a good initialization.
+
+%===========================================================
+\section{\uppercase{Training and Evaluation}}
+\label{sec:evaluation}
+
+\begin{table*}[t] 
+	\begin{center}
+		\captionsetup{width=15cm}		
+		\caption{Предсказанные параметры положения камеры на выборке TownCentre для <<чистых>>, <<зашумленных>> данных и данных, содержащих единственное обнаружение головы. Таблица содержит предсказанные параметры позы камеры и их среднеквадратичные отклонения.} \label{tab:symbols}
+		\begin{tabular}{|c|c|c|c|} 
+			\hline
+			& Tilt angle & Roll angle & Height \\ \hline \hline
+			groundtruth & $\input{Dissertation/camera_pose/tilt_gt.tex}$ & $\input{Dissertation/camera_pose/roll_gt.tex}$ & --- \\
+			"clear" data & $\input{Dissertation/camera_pose/tilt_pred.tex} \pm \input{Dissertation/camera_pose/tilt_conf.tex}$ &
+			$\input{Dissertation/camera_pose/roll_pred.tex} \pm \input{Dissertation/camera_pose/roll_conf.tex}$ &
+			$\input{Dissertation/camera_pose/height_pred.tex} \pm \input{Dissertation/camera_pose/height_conf.tex}$ \\
+			"cluttered" data & $\input{Dissertation/camera_pose/cluttered_tilt_pred.tex} \pm \input{Dissertation/camera_pose/cluttered_tilt_conf.tex}$ &
+			$\input{Dissertation/camera_pose/cluttered_roll_pred.tex} \pm \input{Dissertation/camera_pose/cluttered_roll_conf.tex}$ &
+			$\input{Dissertation/camera_pose/cluttered_height_pred.tex} \pm \input{Dissertation/camera_pose/cluttered_height_conf.tex}$ \\
+			single observation & $\input{Dissertation/camera_pose/single_tilt_pred.tex} \pm \input{Dissertation/camera_pose/single_tilt_conf.tex}$ &
+			$\input{Dissertation/camera_pose/single_roll_pred.tex} \pm \input{Dissertation/camera_pose/single_roll_conf.tex}$ &
+			$\input{Dissertation/camera_pose/single_height_pred.tex} \pm \input{Dissertation/camera_pose/single_height_conf.tex}$ \\ \hline
+		\end{tabular}
+	\end{center}
+\end{table*}
+
+\begin{table*}[t] 
+	\begin{center}
+		\captionsetup{width=15cm}
+		\caption{Предсказанные параметры позы камеры на выборке PETS 2006. Таблица содержит предсказанные параметры позы камеры и их среднеквадратичные отклонения.} \label{tab:PETS}
+		\begin{tabular}{|c|c|c|c|c|} 
+			\hline
+			video sequence & & Tilt angle & Roll angle & Height \\ \hline \hline
+			\multirow{2}{*}{PETS 1} & groundtruth & $1.6758$ & $-0.0172$ & $1.8786$  \\
+			& predicted & $2.0166 \pm 0.0612$ & $-0.0012 \pm 0.0356$ &  $4.5958 \pm 0.8783$ \\ \hline
+			\multirow{2}{*}{PETS 2} & groundtruth & $1.5346$ & $-0.0959$ & $4.6097$  \\
+			& predicted & $1.7315 \pm 0.0715$ & $-0.0374 \pm 0.0428$ &  $9.377 \pm 1.0811$ \\ \hline
+			\multirow{2}{*}{PETS 3} & groundtruth & $1.86$ & $-0.0304$ & $5.5016$ \\
+			& predicted & $1.9287 \pm 0.0241$ & $-0.0246 \pm 0.0225$ &  $5.8238 \pm 0.2988$ \\ \hline
+			\multirow{2}{*}{PETS 4} & groundtruth & $2.0290$ & $-0.1095$ & $6.5672$ \\
+			& predicted & $2.0247 \pm 0.0249$ & $0.059 \pm 0.0236$ & $5.3678 \pm 0.3262$ \\ \hline
+		\end{tabular}
+	\end{center}
+\end{table*}
+
+\subsection{Training}
+
+We train the calibration model on the constructed synthetic dataset. This dataset contains only groundtruth head detections without outliers (false detections). We found that the model trained on this "clear" detections does not generalize to real data.
+
+Therefore, we add noise to the data. We model two types of noise: 1) duplicated observations of a single object in the same place and 2) false positive detections. We choose at random a subset of found heads to construct a single sample. It may contain less than 64 heads. At the next stage we randomly replace up to 10\% of chosen bounding boxes with random noise. Finally, we randomly peek 64 heads from the set and construct training sample. Thus the constructed sample may contain noise and duplicate observations. We peek 3 samples from each generated scene.
+
+Our CNN has small number of parameters and the input is relatively small. Thus each batch contains 32768 samples. We use 80\% of scenes for training and 20\% for validation. We set gamma to $0.3$ and step size to 2000. Training was performed in 150000 iterations.
+
+\subsection{Evaluation}
+
+\begin{figure}[ht]
+	\centering
+	\includegraphics[width=0.5\textwidth]{camera_pose/camNet_train}
+	\caption{Ошибка на обучающей и тестовой синтетической выборке.}
+	\label{fig:training}
+\end{figure}
+
+\begin{figure*}[ht]
+	\centering
+	\begin{tabular}{ccc}
+		\includegraphics[height=26mm]{camera_pose/clear_detections_tilt} &
+		\includegraphics[height=26mm]{camera_pose/clear_detections_roll} &
+		\includegraphics[height=26mm]{camera_pose/clear_detections_height} \\
+		\includegraphics[height=26mm]{camera_pose/bestClear_0} &
+		\includegraphics[height=26mm]{camera_pose/bestClear_1} &
+		\includegraphics[height=26mm]{camera_pose/bestClear_2} \\
+		\includegraphics[height=26mm]{camera_pose/combinedObservations_0} &
+		\includegraphics[height=26mm]{camera_pose/combinedObservations_1} &
+		\includegraphics[height=26mm]{camera_pose/combinedObservations_2} \\
+	\end{tabular}
+	\caption{Результаты определения позы камеры на выборке TownCentre. В первой строке представлены гистограммы предсказанных параметров камеры на разных подмножествах верных обнаружений людей в выборке (голубым). Во второй строке указано предсказанное распределение положения камеры. В третьей строке представлено предсказанное распределение положения камеры на данных, содержащих ложно-положительные обнаружения, (синий) и единственное верное обнаружение (зеленый). Параметры позы камеры, представленные в экспертной разметке, отмеченны красным. Столбцы соответствуют углам наклона и поворота и высоте камеры над плоскостью земли.}
+	\label{fig:bestClear}
+\end{figure*}
+
+We perform several tests to evaluate quality of the constructed model. First of all we test our model on the synthetic validation set. Training process (рисунок~\ref{fig:training}) shows that error rate on training and validation sets are similar, i.e.\ the model does not overfits to training data.
+
+We test constructed model on the real data without noise. We choose the TownCentre dataset \cite{benfold2011stable} as it contains groundtruth head location for all presented people and the known calibration parameters. Unfortunately, we cannot use height of the camera as scale of the presented world coordinates differs from ours.
+
+We apply the fastHOG detector \cite{prisacariu2009fasthog} to each frame. Detections that overlap with groundtruth is higher than 0.5 for IoU metric are marked as true positives. The detector precision is found to be $48\%$ for this criterion. There are 19061 true positive heads in 4501 frames. To estimate quality on such "clear" data we choose at random 40000 samples with 64 bounding boxes. The first row of рисунка~\ref{fig:bestClear} shows histogram of the model predictions.
+
+To make the final solution we choose a distribution with the smallest differential entropy. For Gaussian distributions it also has the smallest determinant of the predicted covariance matrix $\Sigma$. The mean value of the chosen distribution is the predicted location of the camera. We show the chosen distribution in the second row of рисунка~\ref{fig:bestClear}. Рисунок~\ref{fig:TownCentre_calibration} presents synthesized people on the real image from the video sequence. We see that the presented and synthesized people have similar sizes. Thus the proposed model predicts plausible camera location. In further experiments we use the predicted camera height as the groundtruth.
+
+\begin{figure*}[!t]
+	\centering
+	\includegraphics[height=72mm]{camera_pose/TownCentre_1}
+	\caption{Визуализация синтезированных людей на предсказанной плоскости земли.}
+	\label{fig:TownCentre_calibration}
+\end{figure*}
+
+In the next experiment we use all head detections on the TownCentre dataset. We repeat the proposed calibration technique used for clear detections. Note, that in average a number of false positives in the constructed samples are much higher than in train samples (52\% vs 10\%). The constructed results are shown in the third row of \ref{fig:bestClear}. It shows that the predicted camera location is close to its true value even when there are a huge number of false positive detections.
+
+In addition we experiment with duplicate detections in a sample. We choose a single true positive head found by the detector and construct a sample that contains 64 copies of this head. Such an extreme case of duplication corresponds to a scene with a single person standing in the same place for a long time. Camera location cannot be predicted from this sample as is it specifies only distance to the single person in a scene. Рисунок~\ref{fig:bestClear} shows that the model predicts a very significant error for camera locations that can produce such a detection. Thus a determinant of the predicted covariance matrix is a good measure of the model confidence.
+
+Our training data assumes that people can be found in each location of the input images. Thus, each training sample contains people uniformly distributed in the image plane. Hence, the long input video sequence is preferable as it gives better statistics of people sizes across image plane.
+
+We evaluate the proposed method on four video sequences of the more challenging PETS 2006 dataset \cite{thirde2006overview}. It's important to notice, that the first and second video sequences of this dataset violate our assumption of a single ground plane. These video sequences contain people on several floors. Nevertheless, we apply the proposed method to all video sequences in the dataset and use all detector results as the features. Our evaluation (см. таблица~\ref{tab:PETS}) reveals that the proposed method correctly estimate camera location on the third and fourth sequence and cannot predict plausible camera pose on the first two sequences. However the predicted deviation is significantly larger for such failure cases, thus the model indicates low confidence in these predictions.
+
+%===========================================================
+\section{\uppercase{Conclusions}}
+
+In this paper we present a novel approach to camera pose estimation. It utilizes 3 main concepts: the synthetic training set, intermediate scene representation and prediction of the result error. Our experiments show that in spite of training on synthetic dataset, the constructed algorithms generalize to real data. The proposed algorithm is shown to be robust to noise in the input data and allows input of any length.
+
+In our experiments we use people observation and the head detector \cite{prisacariu2009fasthog} to estimate camera pose. However the proposed approach can be integrated with any kind of objects in the scene, that we can model in synthetic dataset and localize on both real and synthetic data.
+
+The future works include several aspects: (1) integrate camera calibration with detectors to prevent false positives of unlikely sizes (2) speed up the applied detector by skipping image regions where people of the plausible sizes cannot be found. (3) Integrate camera calibration algorithm with detectors of other objects to predict extrinsic and intrinsic parameters.
 
 %\chapter{Оформление различных элементов} \label{chapt1}
 
