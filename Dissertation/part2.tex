@@ -15,7 +15,7 @@
 
 Для дальнейшего описания предложенного метода следующем разделе я представляю модель наблюдаемых данных.
 
-\section{Математическая модель наблюдаемых данных}
+\section{Математическая модель наблюдаемых данных}  \label{chap-cam_pose::sec-model}
 
 В данной работе я предлагаю модель наблюдаемых данных состоящих из плоской статичной сцены и людей, находящихся в ней. Такая аппроксимация подходит для описания большинства сценариев видеонаблюдения. Ниже я предлагаю описание трёх её составляющих моделей: сцены, камеры и человека.
 
@@ -44,7 +44,7 @@
 
 \subsection{Модель человека}
 
-Единственными движущимися объектами в сцене являются люди. Я использовал модель человека, предложенную в статье \cite{pishchulin15arxiv}. Она является отображением параметров позы и комплекции в положение вершин трехмерной модели человека. В качестве роста людей в сцене я выбрал 1.75 метра "--- средний рост взрослых европейцев.
+Единственными движущимися объектами в сцене являются люди. Я использовал модель человека, предложенную в статье \cite{pishchulin15arxiv}. Она является отображением параметров позы и комплекции в положение вершин трехмерной модели человека.
 
 \section{Поза камеры}
 
@@ -59,27 +59,117 @@
 
 Формально задача определения позы камеры по изображению имеет следующий вид:
 \begin{itemize}
-\item[\textbf{Вход:}] Последовательность ${I_t}_t^T$ изображений, полученная статичной камерой в сцене;
+\item[\textbf{Вход:}]
+\begin{itemize}
+\item Последовательность ${I_t}_t^T$ изображений, полученная статичной камерой;
+\item Фокусное расстояние $f$ камеры;
+\end{itemize}
 \item[\textbf{Выход:}] Параметры позы камеры в сцене: $(h, t, r)$.
 \end{itemize}
 
-Алгоритм может быть использован как для цветных, так и для монохромных изображений произвольного размера, т.е.~$I\in[0,255]^{I_c \times I_w \times I_h}$, где $(I_c, I_w, I_h)$ "--- количество цветовых каналов, ширина и высота изображения. Последовательность изображений может иметь произвольный размер, в частности предложенный метод может определять положение камеры по единственному изображению. На изображении должно располагаться не менее 3 человек не расположенных одной прямой и 
+Алгоритм может быть использован для последовательностей, содержащих  как цветные, так и монохромные изображения произвольного размера. На наблюдаемые данные накладываются следующие ограничения:
+\begin{itemize}
+	\item в данный представлено не менее трех изображений людей, не расположенных на одной прямой;
+	\item изображения голов людей имеют размер не менее $16\times16$ пикселей;
+	\item высота $h$ камеры не превосходит 20 метров;
+	\item угол поворота $r$ камеры находится в пределах $\left(-\frac{\pi}{12}, \frac{\pi}{12}\right)$;
+	\item фокусное расстояние $f$ камеры ограничено $5000$ размерами пикселя.
+\end{itemize}
+
+Входная последовательность изображений может иметь произвольный размер, в частности содержать единственное изображение.
 
 \section{Предложенный метод}
 
-Предложенный метод определяет позу камеры 
+Я разработал метод определения позы камеры, основанный на анализе размеров изображений объектов интереса в наблюдаемой сцене. В качества объектов были выбраны головы людей, поскольку в отличие от фигур всего человека они меньше подвержены перекрытиям в сценарии видеонаблюдения.
 
-$\frac{\pi}{2}$
-%$\slantfrac{\pi}{2}$
-и отсутсвии поворота камеры $r=0$. 
-При аппробации предложенного метода использовались положения головы людей на изображении.
+Для построения отображения входного изображения в параметры камеры я использовал методы машинного обучения с учителем. В связи с отсутствием больших размеченных коллекций с известными положениями объектов и камеры в сцене обучение происходило на синтетической выборке.
 
 \subsection{Построение обучающей выборки}
-\subsection{Построение признакового описания}
+
+Обучающая выборка состоит из синтетических последовательностей изображений. Для её построения я использовал модель наблюдаемых данных, описанную в разделе \ref{chap-cam_pose::sec-model}.
+
+Алгоритм оценки позы камеры использует только положение и размер головы человека на изображение. Поэтому в синтетической выборке не моделируется разнообразие поз людей реального мира, и все люди находятся в стандартной позе. В качестве роста людей в сцене я выбрал 1.75 метра "--- средний рост взрослых европейцев.
+
+При построении выборки изображения не удовлетворяющие ограничениям модели наблюдаемых данных отбраковывались. Построенная синтетическая выборка состоит из 100373 последовательностей, содержащих по 300 изображений в среднем. Каждое изображение содержит оного человека расположенного в произвольном месте изображения. Таким образом удается добиться того, что каждый человек хорошо виден на изображении.
+
+\subsection{Выбор признакового описания}
+
+Синтетические последовательности изображений визуально отличаются от реальных данных. Поэтому для обучения алгоритма регрессии позы необходимо выбрать признаковое описание инвариантное к используемой выборке.
+
+В качестве описания я использую результаты обнаружения голов людей на изображении. Таким образом, каждый человек на изображении описывается тройкой чисел $\left(x_h, y_h, s_h\right)$, соответствующей положению центра его головы и её линейным размерам. Конечно, модель человека \cite{pishchulin2015building} позволяет определить реальное положение головы человека на синтетическом изображении. Однако, мы не можем применить тот же метод оценки положения головы человека к изображения реальных данных. Поэтому при использовании разных способов оценки положения головы человека на реальных и синтетических данных может возникнуть проблема оценки построенного алгоритма определения позы камеры. Поэтому я использовал метод локализации объектов на изображении даже к синтетическим данным. Такой подход позволил мне учесть небольшие ошибки в локализации и определении размеров алгоритмом локализации головы человека. Также этот подход позволяет использовать для определения позы камеры любые объекты, для которых доступна модель и алгоритм локализации на изображении.
+
+Для локализации голов людей на изображении был выбран алгоритм \cite{prisacariu_reid_tr2310_09} и использована его оптимизированная версия \footnote{https://bitbucket.org/13e\_sha/fasterhog}. Использование данного алгоритма обусловлено высокой скоростью его работы. Этот фактор оказался очень важным для построения большой коллекции изображений синтетической выборки. Также данный алгоритм не чувствителен к наличию текстуры на изображении человека.
+
+Для построения прецедента для обучения алгоритма регрессии позы камеры я использовал информацию о 64 людях в сцене.
+
 \subsection{Регрессия позы камеры}
+
+Я использовал сверточную нейронную сеть для оценки позы камеры.
+
+Важно отметить, разные последовательности кадров имеют различную сложность для обучения алгоритма определения позы камеры. При увеличении высоты камеры над плоскостью земли увеличивается сложность определения этого параметра.
+
+ Для двух камер, имеющих одинаковое фокусное расстояние, но расположенных на разной высоте,  Для решения задач регрессии обычно используют Евклидову функции ошибки. 
+
+\begin{figure*}[!t]
+	\centering
+	\includegraphics[width=\textwidth]{camera_pose/1}
+	\caption{Схема использованной нейронной сети для предсказания параметров позы камеры.}
+	\label{fig:net}
+\end{figure*}
+
+
+We use Convolutional Neural Network (CNN) to estimate the calibration parameters. The Euclidean loss is a traditional loss layer for such regression tasks. It assumes equal "penalty rules" for all predictions. In some cases it leads to inaccurate results. Imagine, the input data have outliers or huge noise level. A regression with the Euclidean loss tends to bias true predictions to compensate shift from groundtruth on such data. On the contrary, if the used model can indicate how "good" the input data are, it can overcome this drawback. The proposed LogNormLoss layer is a solution for this task. It estimates the predicted value and confidence of the prediction by minimizing negative logarithm of normal distribution density function.
+
+Formally, LogNormLoss layer assumes that the true value $y$ is normally distributed with unknown mean $\mu$ and variance $\Sigma$:
+\begin{equation}
+p(y|x, \Theta) = N(y|\mu, \Sigma)
+\end{equation}
+It estimates the parameters $\mu$ and $\Sigma$ using maximization of the likelihood. If we assume that these parameters do not depend on the input data $x$, the layer describes all targets $y$ with a single Gaussian. On the other hand, CNN with LogNormLoss layer trains $\mu$ and $\Sigma$ as functions of the input data $x$ and model parameters $\Theta$.
+
+The proposed loss layer has 3 inputs. The layer interprets first two inputs $\mu$ and $s$ as a mean and logarithm of a variance of normal distribution. Thus, the loss is a negative logarithm of a normal distribution density function:
+\begin{equation}
+L(y |\mu, s) = -\log N(y|\mu, e^{s} + \epsilon)
+\end{equation}
+We use $\epsilon = 1e-6$ to prevent overfitting to a single train sample.
+
+If y is a vector we assume independence of the different components of the prediction:
+\begin{equation}
+L(y | \mu, s) = -\log N(y|\mu, diag\left(e^{s}\right) + \epsilon I)
+\end{equation}
+
+The $s$ parameter can be interpreted as a predicted error. The higher value it takes the fewer model confidence is. If the $s$ values are equal for all input data $x$, this loss equal to Euclidean loss. But if they depends on the observed data, CNN trains to estimate accuracy of the predicted mean value $\mu$ for the current input $x$.
+
+Derivatives of the LogNormLoss layer has simple analytical form:
+\begin{align}
+	\frac{\partial L(y | \mu, s)}{\partial \mu_j} &= 
+	\frac{\mu_j - y^j}{e^{s_j} + \epsilon}
+	\label{eq:der_mu} \\
+	\frac{\partial L(y | \mu, s)}{\partial s_j} &= 
+	\frac{1}{2}\frac{e^{s_j}}{e^{s_j} + \epsilon}
+	\left(1 - \frac{(\mu_j - y^j) ^ 2}{e^{s_j} + \epsilon}\right)  \label{eq:der_sigma}
+\end{align}
+
+Equations \eqref{eq:norm}, \eqref{eq:der_mu} and \eqref{eq:der_sigma} allows efficient implementation of the layer for modern GPUs. We implement the LogNormLoss layer in the Caffe framework \cite{jia2014caffe}.
+
+
+Our main goal is construction of calibration algorithm that predicts camera pose from people observations in the scene. It takes the bounding boxes of detected human heads and focal length (in pixels) as the input and predicts camera extrinsic parameters and confidence of the prediction.
+
+We make several assumptions of the observed data. All people in the scene have the same height and stand on the ground plane. Thus all heads lie on a plane in a world coordinates. Therefore, if 3 found heads do not lie in a single line in the image, we can analytically estimate camera extrinsic parameters. Nevertheless, noise and quantization makes this solution inaccurate. Therefore, we construct each input sample from 64 head locations and solve the regression task using CNN.
+
+The first problem we solve is how to present head detection to CNN. Initially the input head locations in a sample do not have any ordering. Hence, there are $64!$ permutations of the same head locations in a sample. If we use data without any ordering the constructed model should adapt to all of these permutations. To solve this problem we sort heads by size and arrange them in a grid. Consequently, the head locations forms a tensor of size $3\times8\times8$, where each head bounding box is presented by location of its top left corner and size.
+
+The introduced structure of the sample allows us to use convolutional layers (см. рисунок~\ref{fig:net}). We apply 3 convolutional layers with ReLu non-linearity. Each convolution has size of $3\times3$. These layers allow 1) extract information from distant objects (correspond to convolution of columns) and 2) be robust to noise in data (convolution adjacent objects in a column).
+
+After the third convolution and ReLu non-linearity we concatenate the constructed features with the camera focal length. The model applies five fully connected layers with non-linearity to this features. The model uses LogNormLoss layer to evaluate quality of the predicted camera location $\mu$ and its error $s$.
+
+It is important to notice, as we use the detected bounding boxes, the proposed algorithm becomes sensitive to the applied detector, i.e.\ it fits to the detector. Thus, we should update synthetic dataset and repeat training of the CNN, if we want to use another detector. On the other hand, this solution allows us to skip modeling of the detector noise. Moreover, if results of another detector is similar to the ours, it is not necessary to train the model from scratch, the proposed CNN gives a good initialization.
+
 \subsection{Объединение результатов прецедентов}
 \section{Обучение и экспериментальная оценка}
 \subsection{Обучение}
+
+Так как реальные данные могут содержать людей, которые стоят на одном месте, прецеденты используемые для обучения Чтобы метод был устойчив к наличию стоящих на одном месте людей я 
+
 \subsection{Экспериментальная оценка на синтетической выборке}
 \subsection{Экспериментальная оценка на реальных данных}
 
