@@ -48,7 +48,7 @@
 
 \section{Поза камеры}
 
-Выбранная модель сцены однозначно определяет взаимное положение мировой системы координат и системы координат камеры. При заданных ограничениях поза камеры однозначно определяется тремя параметрами:
+Выбранная модель сцены однозначно определяет взаимное положение мировой системы координат и системы координат камеры. При заданных ограничениях поза камеры $l_{c}$ однозначно определяется тремя параметрами:
 \begin{itemize}
 	\item высотой $h$ камеры над плоскостью земли;
 	\item углом $t$ наклона камеры;
@@ -61,10 +61,10 @@
 \begin{itemize}
 \item[\textbf{Вход:}]
 \begin{itemize}
-\item Последовательность ${I_t}_t^T$ изображений, полученная статичной камерой;
+\item Последовательность $\left\{I_t\right\}_t^T$ изображений, полученная статичной камерой;
 \item Фокусное расстояние $f$ камеры;
 \end{itemize}
-\item[\textbf{Выход:}] Параметры позы камеры в сцене: $(h, t, r)$.
+\item[\textbf{Выход:}] Параметры позы камеры в сцене: $l_{c} = \left( h, t, r \right)$.
 \end{itemize}
 
 Алгоритм может быть использован для последовательностей, содержащих  как цветные, так и монохромные изображения произвольного размера. На наблюдаемые данные накладываются следующие ограничения:
@@ -100,15 +100,34 @@
 
 Для локализации голов людей на изображении был выбран алгоритм \cite{prisacariu_reid_tr2310_09} и использована его оптимизированная версия \footnote{https://bitbucket.org/13e\_sha/fasterhog}. Использование данного алгоритма обусловлено высокой скоростью его работы. Этот фактор оказался очень важным для построения большой коллекции изображений синтетической выборки. Также данный алгоритм не чувствителен к наличию текстуры на изображении человека.
 
-Для построения прецедента для обучения алгоритма регрессии позы камеры я использовал информацию о 64 людях в сцене.
+Для построения прецедента для обучения алгоритма регрессии позы камеры я использовал информацию о 64 людях в сцене. 
 
 \subsection{Регрессия позы камеры}
 
 Я использовал сверточную нейронную сеть для оценки позы камеры.
 
-Важно отметить, разные последовательности кадров имеют различную сложность для обучения алгоритма определения позы камеры. При увеличении высоты камеры над плоскостью земли увеличивается сложность определения этого параметра.
+Важно отметить, что точность предсказания должна зависеть от позы камеры. При увеличении высоты камеры над плоскостью земли, точность её предсказания может уменьшаться. Таким образом, разные последовательности выборки могут иметь различную сложность при обучении.
 
- Для двух камер, имеющих одинаковое фокусное расстояние, но расположенных на разной высоте,  Для решения задач регрессии обычно используют Евклидову функции ошибки. 
+Я учел это предположение в функции ошибки построенной нейронной сети. При решении задачи регрессии обычно используют Евклидову функцию потерь. К сожалению, она одинаково ``штрафует'' отклонение от правильного ответа для всех прецедентов. Для решения этой проблемы в качестве функции потерь я использовал взвешенную сумму квадратичных отклонений, где значение параметра и вес его вклада предсказывается нейронной сетью.
+
+Формально, построенный алгоритм использует предположение нормального распределения позы камеры $l=\left( h, t, r \right)$ при условии наблюдаемых признаков сцены $x$ и  предсказывает математическое ожидание $\tilde{l_c}$ и дисперсию $\Sigma_c$ этого распределения: 
+\begin{equation}
+p(l_{c}|x, \Theta) = N(l_c|\tilde{l_c}(x, \Theta), \Sigma_c(x, \Theta))
+\end{equation}
+
+Матрица ковариации $\Sigma_c$ должна быть положительно определенной. Я учел это ограничение в функции потерь, добавив предположение о независимости параметров позы камеры. Также нейронная сеть предсказывает логарифм элементов матрицы ковариации:
+\begin{equation}
+	\Sigma_c(x, \Theta) = diag\left(e^{s(x, \Theta)}\right) + \epsilon I,
+\end{equation}
+где $s(x, \Theta) = \left( s_h(x, \Theta), s_t(x, \Theta), s_r(x, \Theta) \right)$ "--- вектор параметров матрицы ковариации. Параметр регуляризации $\epsilon$ был выбран равным $10^{-6}$.
+
+Параметр $\lambda_c = \left|\Sigma_c^{-1}\right|$ можно интерпретировать как уверенность алгоритма в предсказании. Важно отметить, что в предложенном методе этот параметр зависит от наблюдаемых данных $x$.
+
+В качестве функция потерь был выбран отрицательный логарифм правдоподобия наблюдаемых данных:
+\begin{equation}
+L(\left\{l_c\right\}_i | \left\{ \tilde{l_c^i} \right\}_i, \left\{s^i\right\}) = -\sum_i\log N(l_{c}^i|\tilde{l_c^i}, diag\left(e^{s^i}\right) + \epsilon I)
+\label{eq:norm}
+\end{equation}
 
 \begin{figure*}[!t]
 	\centering
@@ -117,60 +136,68 @@
 	\label{fig:net}
 \end{figure*}
 
-
-We use Convolutional Neural Network (CNN) to estimate the calibration parameters. The Euclidean loss is a traditional loss layer for such regression tasks. It assumes equal "penalty rules" for all predictions. In some cases it leads to inaccurate results. Imagine, the input data have outliers or huge noise level. A regression with the Euclidean loss tends to bias true predictions to compensate shift from groundtruth on such data. On the contrary, if the used model can indicate how "good" the input data are, it can overcome this drawback. The proposed LogNormLoss layer is a solution for this task. It estimates the predicted value and confidence of the prediction by minimizing negative logarithm of normal distribution density function.
-
-Formally, LogNormLoss layer assumes that the true value $y$ is normally distributed with unknown mean $\mu$ and variance $\Sigma$:
-\begin{equation}
-p(y|x, \Theta) = N(y|\mu, \Sigma)
-\end{equation}
-It estimates the parameters $\mu$ and $\Sigma$ using maximization of the likelihood. If we assume that these parameters do not depend on the input data $x$, the layer describes all targets $y$ with a single Gaussian. On the other hand, CNN with LogNormLoss layer trains $\mu$ and $\Sigma$ as functions of the input data $x$ and model parameters $\Theta$.
-
-The proposed loss layer has 3 inputs. The layer interprets first two inputs $\mu$ and $s$ as a mean and logarithm of a variance of normal distribution. Thus, the loss is a negative logarithm of a normal distribution density function:
-\begin{equation}
-L(y |\mu, s) = -\log N(y|\mu, e^{s} + \epsilon)
-\end{equation}
-We use $\epsilon = 1e-6$ to prevent overfitting to a single train sample.
-
-If y is a vector we assume independence of the different components of the prediction:
-\begin{equation}
-L(y | \mu, s) = -\log N(y|\mu, diag\left(e^{s}\right) + \epsilon I)
-\end{equation}
-
-The $s$ parameter can be interpreted as a predicted error. The higher value it takes the fewer model confidence is. If the $s$ values are equal for all input data $x$, this loss equal to Euclidean loss. But if they depends on the observed data, CNN trains to estimate accuracy of the predicted mean value $\mu$ for the current input $x$.
-
-Derivatives of the LogNormLoss layer has simple analytical form:
+Производные используемой функции потерь могут быть вычислены аналитически:
 \begin{align}
-	\frac{\partial L(y | \mu, s)}{\partial \mu_j} &= 
-	\frac{\mu_j - y^j}{e^{s_j} + \epsilon}
+	\frac{\partial L}{\partial \tilde{\l_c^j}} &= 
+	\frac{\tilde{\l_c^j} - l_c^j}{e^{s^j} + \epsilon}
 	\label{eq:der_mu} \\
-	\frac{\partial L(y | \mu, s)}{\partial s_j} &= 
-	\frac{1}{2}\frac{e^{s_j}}{e^{s_j} + \epsilon}
-	\left(1 - \frac{(\mu_j - y^j) ^ 2}{e^{s_j} + \epsilon}\right)  \label{eq:der_sigma}
+	\frac{\partial L}{\partial s^j} &= 
+	\frac{1}{2}\frac{e^{s^j}}{e^{s^j} + \epsilon}
+	\left(1 - \frac{(\tilde{l_c^j} - l_c^j) ^ 2}{e^{s^j} + \epsilon}\right)  \label{eq:der_sigma}
 \end{align}
 
-Equations \eqref{eq:norm}, \eqref{eq:der_mu} and \eqref{eq:der_sigma} allows efficient implementation of the layer for modern GPUs. We implement the LogNormLoss layer in the Caffe framework \cite{jia2014caffe}.
+Выражения \eqref{eq:norm}, \eqref{eq:der_mu} и \eqref{eq:der_sigma} допускают эффективную реализацию используемой функции потерь на современных графических ускорителях.
 
+Я использовал сверточную нейронную сеть прямого распространения. Входом нейронной сети является тензор размера $3\times8\times8$, описывающие положение и размер каждой из 64 обнаруженных голов. Чтобы алгоритму не потребовалось адаптироваться ко всевозможным перестановкам объектов прецедента, они были отсортированы по возрастанию размера.
 
-Our main goal is construction of calibration algorithm that predicts camera pose from people observations in the scene. It takes the bounding boxes of detected human heads and focal length (in pixels) as the input and predicts camera extrinsic parameters and confidence of the prediction.
+Построенная нейронная сеть состоит из 3 сверточных слоёв, после которых используется нелинейная функция ReLu. Размер каждой сверки равер $3\times3$. Такой подход позволяет сверточным слоям 1) использовать информацию об удаленных объектах, размер которых существенно отличается и 2) адаптироваться к шуму в данных за счет использования объектов, чьи размеры отличаются слабо.
 
-We make several assumptions of the observed data. All people in the scene have the same height and stand on the ground plane. Thus all heads lie on a plane in a world coordinates. Therefore, if 3 found heads do not lie in a single line in the image, we can analytically estimate camera extrinsic parameters. Nevertheless, noise and quantization makes this solution inaccurate. Therefore, we construct each input sample from 64 head locations and solve the regression task using CNN.
-
-The first problem we solve is how to present head detection to CNN. Initially the input head locations in a sample do not have any ordering. Hence, there are $64!$ permutations of the same head locations in a sample. If we use data without any ordering the constructed model should adapt to all of these permutations. To solve this problem we sort heads by size and arrange them in a grid. Consequently, the head locations forms a tensor of size $3\times8\times8$, where each head bounding box is presented by location of its top left corner and size.
-
-The introduced structure of the sample allows us to use convolutional layers (см. рисунок~\ref{fig:net}). We apply 3 convolutional layers with ReLu non-linearity. Each convolution has size of $3\times3$. These layers allow 1) extract information from distant objects (correspond to convolution of columns) and 2) be robust to noise in data (convolution adjacent objects in a column).
-
-After the third convolution and ReLu non-linearity we concatenate the constructed features with the camera focal length. The model applies five fully connected layers with non-linearity to this features. The model uses LogNormLoss layer to evaluate quality of the predicted camera location $\mu$ and its error $s$.
-
-It is important to notice, as we use the detected bounding boxes, the proposed algorithm becomes sensitive to the applied detector, i.e.\ it fits to the detector. Thus, we should update synthetic dataset and repeat training of the CNN, if we want to use another detector. On the other hand, this solution allows us to skip modeling of the detector noise. Moreover, if results of another detector is similar to the ours, it is not necessary to train the model from scratch, the proposed CNN gives a good initialization.
+После применения сверточных слоёв полученный результат объединяется с фокусным расстоянием $f$ камеры и подается на вход полносвязным слоям. Описанная выше функция потерь позволяет обучать нейронную сеть предсказывать положение камеры и уверенность предсказания.
 
 \subsection{Объединение результатов прецедентов}
+
+Построенная нейронная сеть предсказывает позу камеры, используя положения не более 64 людей в сцене. Во реальных сценариях видеонаблюдения количество людей в сцене может существенно превышать это значение. Поэтому необходимо предложить метод объединения результатов на разных наборах данных.
+
+Для решения этой проблемы можно объединить результаты работы алгоритма на $K$ разных подмножествах обнаружений людей с помощью наивного Байессовского метода:
+\begin{align}
+	\overline{l_c} &= \overline{\Sigma_c} \left( \sum_k^K{\Sigma_{c,k}^{-1} \tilde{l}_{c,k} } \right) \\
+	\overline{\Sigma_c} &= \left( \sum_k^K \Sigma_{c,k}^{-1} \right) ^ {-1},
+\end{align}
+где $\overline{l_c}$ "--- предсказанная поза камеры.
+
+Важно отметить, что данных подход может быть применен только при отсутствии зависимости между предсказанными позами камеры на разных подмножествах данных. Чтобы этого добиться можно использовать непересекающиеся подмножества обнаружений объектов на разреженном множестве кадров.
+
+Альтернативный подход заключается в выборе позы камеры с максимальным значением параметра уверенности $\lambda_c$.
+
+To make the final solution we choose a distribution with the smallest differential entropy. For Gaussian distributions it also has the smallest determinant of the predicted covariance matrix $\Sigma$. The mean value of the chosen distribution is the predicted location of the camera. We show the chosen distribution in the second row of рисунка~\ref{fig:bestClear}. Рисунок~\ref{fig:TownCentre_calibration} presents synthesized people on the real image from the video sequence. We see that the presented and synthesized people have similar sizes. Thus the proposed model predicts plausible camera location. In further experiments we use the predicted camera height as the groundtruth.
+
+\begin{figure*}[!t]
+	\centering
+	\includegraphics[height=72mm]{camera_pose/TownCentre_1}
+	\caption{Визуализация синтезированных людей на предсказанной плоскости земли.}
+	\label{fig:TownCentre_calibration}
+\end{figure*}
+
+In the next experiment we use all head detections on the TownCentre dataset. We repeat the proposed calibration technique used for clear detections. Note, that in average a number of false positives in the constructed samples are much higher than in train samples (52\% vs 10\%). The constructed results are shown in the third row of \ref{fig:bestClear}. It shows that the predicted camera location is close to its true value even when there are a huge number of false positive detections.
+
+In addition we experiment with duplicate detections in a sample. We choose a single true positive head found by the detector and construct a sample that contains 64 copies of this head. Such an extreme case of duplication corresponds to a scene with a single person standing in the same place for a long time. Camera location cannot be predicted from this sample as is it specifies only distance to the single person in a scene. Рисунок~\ref{fig:bestClear} shows that the model predicts a very significant error for camera locations that can produce such a detection. Thus a determinant of the predicted covariance matrix is a good measure of the model confidence.
+
+Our training data assumes that people can be found in each location of the input images. Thus, each training sample contains people uniformly distributed in the image plane. Hence, the long input video sequence is preferable as it gives better statistics of people sizes across image plane.
+
+We evaluate the proposed method on four video sequences of the more challenging PETS 2006 dataset \cite{thirde2006overview}. It's important to notice, that the first and second video sequences of this dataset violate our assumption of a single ground plane. These video sequences contain people on several floors. Nevertheless, we apply the proposed method to all video sequences in the dataset and use all detector results as the features. Our evaluation (см. таблица~\ref{tab:PETS}) reveals that the proposed method correctly estimate camera location on the third and fourth sequence and cannot predict plausible camera pose on the first two sequences. However the predicted deviation is significantly larger for such failure cases, thus the model indicates low confidence in these predictions.
+
 \section{Обучение и экспериментальная оценка}
+
 \subsection{Обучение}
 
 Так как реальные данные могут содержать людей, которые стоят на одном месте, прецеденты используемые для обучения Чтобы метод был устойчив к наличию стоящих на одном месте людей я 
 
+It is important to notice, as we use the detected bounding boxes, the proposed algorithm becomes sensitive to the applied detector, i.e.\ it fits to the detector. Thus, we should update synthetic dataset and repeat training of the CNN, if we want to use another detector. On the other hand, this solution allows us to skip modeling of the detector noise. Moreover, if results of another detector is similar to the ours, it is not necessary to train the model from scratch, the proposed CNN gives a good initialization.
+
 \subsection{Экспериментальная оценка на синтетической выборке}
+
+We perform several tests to evaluate quality of the constructed model. First of all we test our model on the synthetic validation set. Training process (рисунок~\ref{fig:training}) shows that error rate on training and validation sets are similar, i.e.\ the model does not overfits to training data.
+
 \subsection{Экспериментальная оценка на реальных данных}
 
 \section{Идея}
@@ -269,15 +296,6 @@ We use fast implementation \cite{prisacariu2009fasthog} of head detector. It has
 \subsection{LogNormLoss Layer}
 \label{sec:lognormloss}
 
-
-\begin{figure*}[!t]
-	\centering
-	\includegraphics[width=\textwidth]{camera_pose/1}
-	\caption{Схема использованной нейронной сети для предсказания параметров позы камеры.}
-	\label{fig:net}
-\end{figure*}
-
-
 We use Convolutional Neural Network (CNN) to estimate the calibration parameters. The Euclidean loss is a traditional loss layer for such regression tasks. It assumes equal "penalty rules" for all predictions. In some cases it leads to inaccurate results. Imagine, the input data have outliers or huge noise level. A regression with the Euclidean loss tends to bias true predictions to compensate shift from groundtruth on such data. On the contrary, if the used model can indicate how "good" the input data are, it can overcome this drawback. The proposed LogNormLoss layer is a solution for this task. It estimates the predicted value and confidence of the prediction by minimizing negative logarithm of normal distribution density function.
 
 Formally, LogNormLoss layer assumes that the true value $y$ is normally distributed with unknown mean $\mu$ and variance $\Sigma$:
@@ -294,7 +312,7 @@ We use $\epsilon = 1e-6$ to prevent overfitting to a single train sample.
 
 If y is a vector we assume independence of the different components of the prediction:
 \begin{equation}
-L(y | \mu, s) = -\log N(y|\mu, diag\left(e^{s}\right) + \epsilon I)  \label{eq:norm}
+L(y | \mu, s) = -\log N(y|\mu, diag\left(e^{s}\right) + \epsilon I)
 \end{equation}
 
 The $s$ parameter can be interpreted as a predicted error. The higher value it takes the fewer model confidence is. If the $s$ values are equal for all input data $x$, this loss equal to Euclidean loss. But if they depends on the observed data, CNN trains to estimate accuracy of the predicted mean value $\mu$ for the current input $x$.
@@ -302,11 +320,10 @@ The $s$ parameter can be interpreted as a predicted error. The higher value it t
 Derivatives of the LogNormLoss layer has simple analytical form:
 \begin{align}
 	\frac{\partial L(y | \mu, s)}{\partial \mu_j} &= 
-	\frac{\mu_j - y^j}{e^{s_j} + \epsilon}
-	\label{eq:der_mu} \\
+	\frac{\mu_j - y^j}{e^{s_j} + \epsilon} \\
 	\frac{\partial L(y | \mu, s)}{\partial s_j} &= 
 	\frac{1}{2}\frac{e^{s_j}}{e^{s_j} + \epsilon}
-	\left(1 - \frac{(\mu_j - y^j) ^ 2}{e^{s_j} + \epsilon}\right)  \label{eq:der_sigma}
+	\left(1 - \frac{(\mu_j - y^j) ^ 2}{e^{s_j} + \epsilon}\right) 
 \end{align}
 
 Equations \eqref{eq:norm}, \eqref{eq:der_mu} and \eqref{eq:der_sigma} allows efficient implementation of the layer for modern GPUs. We implement the LogNormLoss layer in the Caffe framework \cite{jia2014caffe}.
