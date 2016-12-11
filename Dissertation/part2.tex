@@ -1,7 +1,7 @@
 %\chapter{Длинное название главы, в которой мы смотрим на примеры того, как будут верстаться изображения и списки} \label{chapt2}
 
 
-\chapter{Определение позы камеры}
+\chapter{Определение позы камеры} \label{chapt2}
 
 В данной главе я предлагаю метод определения позы камеры, основанный на анализе размеров изображений объектов интереса в наблюдаемой сцене. Предложенный метод имеет два ключевых отличия от предыдущих:
 \begin{enumerate}
@@ -184,23 +184,6 @@ L(\left\{l_c\right\}_i | \left\{ \tilde{l_c^i} \right\}_i, \left\{s^i\right\}) =
 
 Важно отметить, что данных подход может быть применен только при отсутствии зависимости между предсказанными позами камеры на разных подмножествах данных. Чтобы этого добиться, можно использовать непересекающиеся подмножества обнаружений объектов на разреженном подмножестве кадров.
 
-To make the final solution we choose a distribution with the smallest differential entropy. For Gaussian distributions it also has the smallest determinant of the predicted covariance matrix $\Sigma$. The mean value of the chosen distribution is the predicted location of the camera. We show the chosen distribution in the second row of рисунка~\ref{fig:bestClear}. Рисунок~\ref{fig:TownCentre_calibration} presents synthesized people on the real image from the video sequence. We see that the presented and synthesized people have similar sizes. Thus the proposed model predicts plausible camera location. In further experiments we use the predicted camera height as the groundtruth.
-
-\begin{figure*}[!t]
-	\centering
-	\includegraphics[height=72mm]{camera_pose/TownCentre_1}
-	\caption{Визуализация синтезированных людей на предсказанной плоскости земли.}
-	\label{fig:TownCentre_calibration}
-\end{figure*}
-
-In the next experiment we use all head detections on the TownCentre dataset. We repeat the proposed calibration technique used for clear detections. Note, that in average a number of false positives in the constructed samples are much higher than in train samples (52\% vs 10\%). The constructed results are shown in the third row of \ref{fig:bestClear}. It shows that the predicted camera location is close to its true value even when there are a huge number of false positive detections.
-
-In addition we experiment with duplicate detections in a sample. We choose a single true positive head found by the detector and construct a sample that contains 64 copies of this head. Such an extreme case of duplication corresponds to a scene with a single person standing in the same place for a long time. Camera location cannot be predicted from this sample as is it specifies only distance to the single person in a scene. Рисунок~\ref{fig:bestClear} shows that the model predicts a very significant error for camera locations that can produce such a detection. Thus a determinant of the predicted covariance matrix is a good measure of the model confidence.
-
-Our training data assumes that people can be found in each location of the input images. Thus, each training sample contains people uniformly distributed in the image plane. Hence, the long input video sequence is preferable as it gives better statistics of people sizes across image plane.
-
-We evaluate the proposed method on four video sequences of the more challenging PETS 2006 dataset \cite{thirde2006overview}. It's important to notice, that the first and second video sequences of this dataset violate our assumption of a single ground plane. These video sequences contain people on several floors. Nevertheless, we apply the proposed method to all video sequences in the dataset and use all detector results as the features. Our evaluation (см. таблица~\ref{tab:PETS}) reveals that the proposed method correctly estimate camera location on the third and fourth sequence and cannot predict plausible camera pose on the first two sequences. However the predicted deviation is significantly larger for such failure cases, thus the model indicates low confidence in these predictions.
-
 \section{Обучение и экспериментальная оценка}
 
 В этом разделе я опишу используемый метод обучения параметров построенного алгоритма и результаты его тестирования на синтетических и реальных данных.
@@ -299,15 +282,13 @@ We evaluate the proposed method on four video sequences of the more challenging 
 	\label{fig:TownCentre_calibration}
 \end{figure*}
 
-В следующем эксперименте я использовал все обнаружения на выборке TownCentre. Я повторил предложенный метод калибровки
-In the next experiment we use all head detections on the TownCentre dataset. We repeat the proposed calibration technique used for clear detections. Note, that in average a number of false positives in the constructed samples are much higher than in train samples (52\% vs 10\%). The constructed results are shown in the third row of \ref{fig:bestClear}. It shows that the predicted camera location is close to its true value even when there are a huge number of false positive detections.
+В следующем эксперименте я повторил предложенный метод определения позы камеры, используя все обнаружения на выборке TownCentre. Важно отметить, что доля ложных срабатываний детектора в выборке существенно превосходит моделируемую долю ложных обнаружений в обучающей выборке (52\% против 10\%). Полученные результаты представлены в третьей строке рисунка~\ref{fig:bestClear}. Результаты показали, что предсказанная поза камеры близка к экспертной разметке даже в ситуации наличия большого количества ложных срабатываний детектора.
 
-In addition we experiment with duplicate detections in a sample. We choose a single true positive head found by the detector and construct a sample that contains 64 copies of this head. Such an extreme case of duplication corresponds to a scene with a single person standing in the same place for a long time. Camera location cannot be predicted from this sample as is it specifies only distance to the single person in a scene. Рисунок~\ref{fig:bestClear} shows that the model predicts a very significant error for camera locations that can produce such a detection. Thus a determinant of the predicted covariance matrix is a good measure of the model confidence.
+Также был рассмотрен экстремальный случай наличия повторяющихся обнаружений в прецеденте. Я построил прецедент состоящий из 64 копий одного обнаружения головы человека в сцене. Такая ситуация может возникать в случае, когда в сцене присутствует лишь один человек, который не меняет своего положения в течении длительного времени. Алгоритм не может предсказать положение камеры, так как единственное обнаружения задает лишь расстояние от камеры до плоскости земли в одной точке. В третьей строке рисунка~\ref{fig:bestClear} представлена оценка поза камеры, где можно заметить, что дисперсия распределений существенно увеличивается при переходе к такому сложному прецеденту. Таким образом, предсказанный параметр точности алгоритма $\lambda$ позволяет определить сложные для анализа прецеденты.
 
-Our training data assumes that people can be found in each location of the input images. Thus, each training sample contains people uniformly distributed in the image plane. Hence, the long input video sequence is preferable as it gives better statistics of people sizes across image plane.
+Используемая обучающая выборка неявно предполагает, что люди мог быть обнаружены в любой части изображения с одинаковой вероятностью. Поэтому для построения прецедентов на реальных данных предпочтительно использовать либо сцены с большим количеством людей, либо результаты длительного наблюдения за человеком.
 
-We evaluate the proposed method on four video sequences of the more challenging PETS 2006 dataset \cite{thirde2006overview}. It's important to notice, that the first and second video sequences of this dataset violate our assumption of a single ground plane. These video sequences contain people on several floors. Nevertheless, we apply the proposed method to all video sequences in the dataset and use all detector results as the features. Our evaluation (см. таблица~\ref{tab:PETS}) reveals that the proposed method correctly estimate camera location on the third and fourth sequence and cannot predict plausible camera pose on the first two sequences. However the predicted deviation is significantly larger for such failure cases, thus the model indicates low confidence in these predictions.
-
+Также предложенный метод был протестирован на четырех последовательностях более сложной выборки PETS~2006 \cite{thirde2006overview}. Важно отметить, что первая и вторая последовательность этой выборки нарушают одно из используемых предположений. На этих последовательностях люди расположены на нескольких этажах. Тем не менее, я применил предложенный метод ко все последовательностям выбоки и использовал все обнаружения голов для построения прецедентов. Результаты тестирования (см. таблицу~\ref{tab:PETS}) показали, что предложенный метод верно оценивает позу камеры для третьей и четвертой последовательностей и ошибается для первых двух последовательностей. Однако, для этих сложных последовательностей уверенность алгоритма оказывается существенно меньше.
 
 \begin{table*}[t] 
 	\begin{center}
