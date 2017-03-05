@@ -102,6 +102,83 @@
 	\item если известно оптимальное значение позы и размера человека на всех кадрах, кроме одного, а также известно оптимальное значение скорости его суставов, то существует алгоритм поиска оптимального значения параметров на оставшемся кадре.
 \end{itemize}
 
+\begin{algorithm}[H]
+	\SetAlgoLined %% Это соединяет линиями логические части 
+	%% алгоритма типа if-then-else
+	
+	\KwData{ $I, K$} %% здесь можно указать исходные параметры
+	
+	\KwResult{ $P$ } %% результат работы программы
+	
+	$r \leftarrow \max(I.width(), I.height())$;
+	
+	$\overline{P} \leftarrow N\_best(I|r)$;
+	
+	$\overline{V} \leftarrow \argmin{E(V|\overline{P})}$;
+	
+	\While{ $r > 1$ }{
+		
+		$t \leftarrow randint(N)$;
+		
+		$\left\{h_k^p\right\} \leftarrow N\_best\left(I_t | \overline{P}_{\setminus t}, \overline{V}, \right)$;
+		
+		\For{$k=\overline{1,K}$}{
+			
+			$H_k^p \leftarrow \left\{\overline{P}_{\setminus t}, h_k^p\right\}$;
+			
+			$H_k^v \leftarrow \argmin {E(V|H_k^p)}$;
+		}
+			
+		$\left(\widehat{P}, \widehat{V}\right) = \argmin{\left\{E(H_k^p, H_k^v)\right\}}$;
+		
+		\If{$E(\widehat{P}, \widehat{V}) = E(\overline{P}, \overline{H})$}{
+			
+			$r \leftarrow \frac{r}{2}$;
+			
+		}
+	
+		$\overline{P} \leftarrow \widehat{P}$;
+
+		$\overline{V} \leftarrow \widehat{V}$;
+				
+	}
+
+	return $\overline{P}$;
+	
+	\caption{Итеративный алгоритм построения позы человека в видео.}
+	\label{alg:generalInit}
+\end{algorithm}
+
+\begin{algorithm}[H]
+	\SetAlgoLined %% Это соединяет линиями логические части 
+	%% алгоритма типа if-then-else
+	
+	\KwData{ $I, \tilde{P}, N$} %% здесь можно указать исходные параметры
+	
+	\KwResult{ $P$ } %% результат работы программы
+	
+	$\tilde{V} \leftarrow \argmax{E(V|\tilde{P})}$;
+	
+	$H_0 \leftarrow \left(\tilde{P}, \tilde{V} \right)$;
+	
+	\For{$i=\overline{1,N}$}{
+		
+		$i \leftarrow sample\_step()$;
+		
+		$\widehat{P} \leftarrow apply\_step(H_{i-1}, k)$;
+		
+		$\widehat{V} \leftarrow \argmin{E(V|\widehat{P})}$;
+		
+		$H_i \leftarrow choose\_next(H_{i-1}, (\widehat{P}, \widehat{V}))$;
+		
+	}
+
+	$P \leftarrow \argmin_i{E(H_i)}$;
+	
+	\caption{Алгоритм сэмплирования для построения позы человека в видео.}
+	\label{alg:generalHM}
+\end{algorithm}
+
 \subsection{Доказательство сходимости}
 \subsection{Доказательство корректности}
 \subsection{Оценка сложности}
