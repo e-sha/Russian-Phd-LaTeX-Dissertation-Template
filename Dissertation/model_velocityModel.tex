@@ -1,0 +1,52 @@
+%\beginpgfgraphicnamed{model-simpleModel}
+\begin{tikzpicture}
+
+\tikzstyle{myDot} = [circle, fill=black,minimum size=5pt, inner
+sep=0pt]
+
+  % Define nodes
+  \node[obs]                                  (P1) {$POS_1^j$};
+  \node[obs, right=2cm of P1]                 (P2) {$POS_2^j$};
+  \node[obs, right=2cm of P2]                 (P3) {$POS_3^j$};
+  \node[obs, right=2cm of P3]                 (PN) {$POS_N^j$};
+  \node[obs, above=0.9cm of P1, xshift=1.5cm] (S1) {$S_1$};
+  \node[obs, above=0.9cm of P2, xshift=1.5cm] (S2) {$S_2$};
+  \node[obs, above=0.9cm of P3, xshift=1.5cm] (S3) {$S_3$};
+  \node[latent, above=1.5cm of P1]            (V1) {$V_1^j$};
+  \node[latent, above=1.5cm of P2]            (V2) {$V_2^j$};
+  \node[latent, above=1.5cm of P3]            (V3) {$V_3^j$};
+  \node[latent, above=1.5cm of PN]            (VN) {$V_N^j$};
+  \node[myDot, right=1.4cm of V3]             (Dot1) {};
+  \node[myDot, right=0.10cm of Dot1]          (Dot2) {};
+  \node[myDot, right=0.10cm of Dot2]          (Dot3) {};
+  \node[myDot, right=1.4cm of V3, yshift=-1.5cm]    (Dot21) {};
+  \node[myDot, right=0.10cm of Dot21, yshift=-0.2cm]  (Dot22) {};
+  \node[myDot, right=0.10cm of Dot22, yshift=-0.2cm]  (Dot23) {};
+
+  % unary factors
+  \factor [below=0.8cm of V1, xshift=1.5cm] {V1-factor}  {} {} {}
+  \factor [below=0.8cm of V2, xshift=1.5cm] {V2-factor}  {} {} {}
+  \factor [below=0.8cm of V3, xshift=1.5cm] {V3-factor}  {} {} {}
+  % pairwise factors
+  \factor [right=1cm of V1] {V12-factor}  {} {} {}
+  \factor [right=1cm of V2] {V23-factor}  {} {} {}
+  \factor [right=1cm of V3] {V3N-factor}  {} {} {}
+
+  %% Connect the nodes
+  % unary
+  \factoredge {P1, P2, V1, S1} {V1-factor} {}
+  \factoredge {P2, P3, V2, S2} {V2-factor} {}
+  \factoredge {P3, Dot21, V3, S3} {V3-factor} {}
+  \draw (Dot23) -- (PN);
+  % paiwise
+  \factoredge {V1, V2, S1} {V12-factor} {}
+  \factoredge {V2, V3, S2} {V23-factor} {}
+  \factoredge {V3, Dot1, S3} {V3N-factor} {}
+  \draw (Dot3) -- (VN);
+
+  % Plates
+%  \plate {yx} {(x)(y)} {$N$} ;
+%  \plate {} {(w)(y)(yx.north west)(yx.south west)} {$M$} ;
+
+\end{tikzpicture}
+%\endpgfgraphicnamed

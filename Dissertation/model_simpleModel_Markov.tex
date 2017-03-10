@@ -1,0 +1,49 @@
+%\beginpgfgraphicnamed{model-simpleModel}
+\begin{tikzpicture}
+
+\tikzstyle{myDot} = [circle, fill=black,minimum size=5pt, inner
+sep=0pt]
+
+  % Define nodes
+  \node[obs]                                (I1) {$I_1$};
+  \node[obs, right=2cm of I1]               (I2) {$I_2$};
+  \node[obs, right=2cm of I2]               (I3) {$I_3$};
+  \node[obs, right=2cm of I3]               (IN) {$I_N$};
+  \node[latent, below=of I1]                (p1) {$P_1$};
+  \node[latent, below=of I2]                (p2) {$P_2$};
+  \node[latent, below=of I3]                (p3) {$P_3$};
+  \node[latent, below=of IN]                (pN) {$P_N$};
+  \node[obs, right=0.6cm of I2, yshift=2cm] (D)  {$D$};
+  \node[myDot, right=0.55cm of p3]          (Dot1) {};
+  \node[myDot, right=0.20cm of Dot1]        (Dot2) {};
+  \node[myDot, right=0.20cm of Dot2]        (Dot3) {};
+
+  % unary factors
+  \factor [below=of I1, xshift=0.6cm] {P1-factor}  {$\phi$} {} {}
+  \factor [below=of I2, xshift=0.4cm] {P2-factor}  {$\phi$} {} {}
+  \factor [below=of I3, xshift=-0.4cm] {P3-factor} {$\phi$} {} {}
+  \factor [below=of IN, xshift=-0.6cm] {PN-factor} {$\phi$} {} {}
+  
+  % pairwise factors
+  \factor [right=1cm of p1] {P12-factor} {$\psi$} {} {}
+  \factor [right=1cm of p2] {P23-factor} {$\psi$} {} {}
+
+  %% Connect the nodes
+  % unary
+  \factoredge {I1, p1, D} {P1-factor} {}
+  \factoredge {I2, p2, D} {P2-factor} {}
+  \factoredge {I3, p3, D} {P3-factor} {}
+  \factoredge {IN, pN, D} {PN-factor} {}
+  % paiwise
+  \factoredge {p1, p2} {P12-factor} {}
+  \factoredge {p2, p3} {P23-factor} {}
+  \draw (p3)   -- (Dot1);
+  \draw (Dot3) -- (pN);
+  
+
+  % Plates
+%  \plate {yx} {(x)(y)} {$N$} ;
+%  \plate {} {(w)(y)(yx.north west)(yx.south west)} {$M$} ;
+
+\end{tikzpicture}
+%\endpgfgraphicnamed
