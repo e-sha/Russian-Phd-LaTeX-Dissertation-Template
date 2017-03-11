@@ -191,73 +191,14 @@
 В данной постановке задача поиска минимума функции энергии $E(V|P, \Theta_{\backslash V})$ совпадает с задачей определения состояний линейной динамической системы (ЛДС):
 \begin{equation}
 \begin{aligned}
-V &= \argmax_V {p\left(V | \left\{\Delta p^t
-	\right\}_{t=1}^{T-1}\right)} \\ 
-\Delta p^t &\sim N(A^u v^t, (s^t)^2\Sigma_p^p) \\
-v^{t+1} &\sim N(A^p v^t, (s^t)^2\Sigma_p^v) \\
-v^1 &\sim N(\Theta, (s^t)^2\Sigma_p^{v^1}) \\
-v^T &= A^p v^{T-1}
+	V &= \argmax_V {p\left(V | \left\{\Delta p^t\right\}_{t=1}^{T-1}, \left\{s^t\right\}_{t=1}^T\right)} \\ 
+	\Delta p^t &\sim N(A^u v^t, (s^t)^2\Sigma_p^p) \\
+	v^{t+1} &\sim N(A^p v^t, (s^t)^2\Sigma_p^v) \\
+	v^1 &\sim N(\Theta, (s^t)^2\Sigma_p^{v^1}) \\
+	v^T &= A^p v^{T-1}
 \end{aligned}
 \end{equation}
-
-Наиболее вероятная конфигурация $V$ при известных значениях $\left\{\Delta p^t\right\}_{t=1}^{T-1}$ определяется математическим ожиданием нормального распределения $p\left(V| \left\{\Delta p^t\right\}_{t=1}^{T-1} \right)$. Рассмотрим маргинальное распределение $p(v^t|\left\{\Delta p^t\right\}_{t=1}^{T-1}) = N(v^t | \mu^t, \Sigma^t)$. Математическое ожидание $p(v^t|\left\{\Delta p^t\right\}_{t=1}^{T-1})$ определяется соответствующей компонентой математического ожидания распределения $p(V|\left\{\Delta p^t\right\}_{t=1}^{T-1})$. Таким образом, значения маргинальных распределений $p(v^t|\left\{\Delta p^t\right\}_{t=1}^{T-1})$ позволяют найти и наиболее вероятную конфигурацию всех скрытых переменных модели $V$. Для поиска наиболее вероятной конфигурации мы используем фильтр Калмана и РТС уравнения.
-
-Априорное распределение скорости сустава в начальный момент времени мы моделируем с помощью нормального распределения с дисперсией стремящейся к бесконечности. Таким образом, мы моделируем отсутствие априорных предпочтений относительно скорости сустава. Поэтому в фильтре Калмана формулы изменятся следующим образом:
-\begin{multline}
-	K_1 = \Sigma_0 A^{uT}\left(A^u \Sigma_0 A^{uT} + \Sigma_p^p\right)^{-1} =
-	\sigma_0 I_{2\times2} A^{uT} \left(A^u \sigma_0 I_{2\times2} A^{uT} +
-	\Sigma_p^p\right)^{-1} = \\ = 
-	A^{uT} \left(A^u A^{uT} + \frac{1}{\sigma_0}\Sigma_p^p\right)^{-1} \rightarrow
-	A^{uT} \left(A^u A^{uT}\right)^{-1}
-\end{multline}
-\[
-\hat{\mu}_1^j = \mu_0 + K_1 \left( \Delta \overline{POS}_1^j - A^u \mu_0 \right) =
-K_1 \Delta \overline{POS}_1^j
-\]
-\begin{multline}
-	\hat{\Sigma}_1^j = \left(I - K_1 A^u \right) \Sigma_0 = \\ =
-	\left(\left(A^{uT} A^u\right)^{-1} A^{uT} A^u - \Sigma_0 A^{uT}
-	\left( A^u \Sigma_0 A^{uT} + \Sigma_p^p \right)^{-1} A^u \right) \Sigma_0 = \\ =
-	\left(\left(A^{uT} A^u\right)^{-1} A^{uT} \left( A^u \Sigma_0 A^{uT} + \Sigma_p^p \right)
-	- \Sigma_0 A^{uT}\right)
-	\left( A^u \Sigma_0 A^{uT} + \Sigma_p^p \right)^{-1} A^u \Sigma_0 = \\ =
-	\left(A^{uT} A^u\right)^{-1} A^{uT} \Sigma_p^p
-	\left( A^u \Sigma_0 A^{uT} + \Sigma_p^p \right)^{-1} A^u \Sigma_0 = \\ =
-	\left(A^{uT} A^u\right)^{-1} A^{uT} \Sigma_p^p
-	\left(A^u A^{uT} + \frac{1}{\sigma_0} \Sigma_p^p \right)^{-1} A^u \rightarrow
-	\left(A^{uT} A^u\right)^{-1} A^{uT} \Sigma_p^p \left(A^u A^{uT}\right)^{-1} A^u
-\end{multline}
-
-Значения $\overline{V}_i^j$ можно эффективно найти с помощью алгоритма <<вперед-назад>> для ЛДС \ref{alg:velocity}. Тогда $V_i^j|\Delta\overline{POS}^j \sim N\left(S_i\mu_i^j, S_i^2 \Sigma_i^j \right)$
-\begin{algorithm}[!t]
-	\KwData{$\Delta \overline{POS}_1^j, \dots, \Delta \overline{POS}_{N-1}^j$ "--- наблюдаемые данные, $(A^u, A^p, \Sigma_p^p, \Sigma_p^v)$ "--- параметры модели}
-	\KwResult{$\mu_1^j, \dots, \mu_{N}^j, \Sigma_1^j, \dots, \Sigma_N^j$}
-	
-	// фильтр Калмана\;
-	$K_1 = A^{uT} \left(A^u A^{uT}\right)^{-1}$\;
-	$\hat{\mu}_1^j = K_1 \Delta \overline{POS}_1^j $\;
-	$\hat{\Sigma}_1^j =
-	\left(A^{uT} A^u\right)^{-1} A^{uT} \Sigma_p^p \left(A^u A^{uT}\right)^{-1} A^u$ \;
-	\For{i = 2,\dots, N-1}{
-		$\tilde{\Sigma}_{i-1} = A^p \hat{\Sigma}_{i-1}^j A^{pT} + \Sigma_p^v$\;
-		$K_{i} = \tilde{\Sigma}_{i-1} A^{uT} (A^u \tilde{\Sigma}_{i-1} A^{uT} + \Sigma_p^p)^{-1}$\;
-		$\hat{\mu}_i^j = A^p \hat{\mu}_{i-1}^j + K_i \left( \Delta \overline{POS}_i^j -
-		A^u A^p \hat{\mu}_{i-1}^j \right)$\;
-		$\hat{\Sigma}_i^j = (I - K_{i} A^u) \tilde{\Sigma}_{i-1}$ \;
-	}
-	
-	// РТС уравнения
-	$\mu_{N-1}^j = \hat{\mu}_{N-1}^j$\;
-	$\Sigma_{N-1}^j = \hat{\Sigma_{N-1}^j}$\;
-	\For {i = N-2,\dots,1}{
-		$K_i=\hat{\Sigma}_i^j A^p \tilde{\Sigma}_i^{-1}$\;
-		$\mu_i^j = \hat{\mu}_i^j + K_i(\mu_{i+1}^j - A^p \hat{\mu}_i^j)$\;
-		$\Sigma_i^j = \hat{\Sigma}_i^j + K_i (\Sigma_{i+1}^j - \tilde{\Sigma}_i^j)K_i^T$\;
-	}
-	$\mu_N = A^p \mu_{N-1}^j$\;
-	$\Sigma_N^j = \Sigma_p^v + A^p \Sigma_{N-1}^j A^{pT}$\;
-	\caption{Алгоритм определения скорости сустава $V^j$.} \label{alg:velocity}
-\end{algorithm}
+Поиск наиболее вероятной конфигурации $V$ осуществляется с помощью фильтра Калмана и РТС уравнений.
 
 \subsubsection{Определение позы и размера на кадре}
 
