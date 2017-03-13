@@ -298,6 +298,8 @@
 
 \subsection{Стохастический алгоритм}
 
+\subsubsection{Общее описание}
+
 Рассмотрим функцию $E_{\setminus V}(P, S) = \max_V{E(P, \Theta)}$, зависящую только от позы человека и параметров его размера. Важно заметить, что данная функция определена на дискретном множестве поз человека и допустимых значений размеров. Таким образом, эта функция задает ненормированное ненормированную вероятность на множестве возможных поз людей в видео $\tilde{p}(P, S) = \exp(-E_{\setminus V}(P, S))$. 
 
 Предложенный алгоритм использует это представление для построения выборки из распределения $\tilde{p}(P, S)$ по схеме марковских цепей (MCMC). Построение выборки позволяет при длительном сэмплировании получить прецеденты из разных мод распределения $\tilde{p}(P, S)$. Таким образом, даже используя инициализацию из локального оптимума, предложенный алгоритм может найти лучшую гипотезу позы человека в видео. Гипотеза, обладающая наименьшим значением энергии, выбирается в качестве результата работы алгоритма. В дальнейшем в рамках данного подраздела под гипотезой я буду понимать текущее значение позы и параметров размера человека в видео:
@@ -312,18 +314,24 @@
 p_{Acc}(\overline{H}|H) = \min{\left(\frac
 	{\tilde{p}(\overline{H}) p_{Tr}(H|\overline{H})}
 	{\tilde{p}(H) p_{Tr}(\overline{H}|H)}, 1\right)}
+	\label{eq::MH_acc}
 \end{equation}
 
 Важно отметить, что алгоритм Метрополиса--Гастингса не требует вычисление нормировочной константы распределения $\tilde{p}$. Более того для построения выборки достаточно иметь способ вычислить значение вероятности лишь отдельных гипотез. Это позволит использовать метод сэмплирования для оптимизации также и более сложных моделей позы человека в видео, включающих глобальные параметры внешности такие, как цвет одежды и его комплекцию.
 
-The sampling algorithm requires the transition model $p(Pa'|Pa_{l-1})$ to sample from the specified distribution. All of the proposed steps of the transition model change only the pose joints locations and the scale parameters. Given the joint's locations we can optimally select hidden state values, as will be described in the next section.
+\subsubsection{Модель перехода}
 
-In our experiments we use several types of steps to construct a new hypothesis of a set of human poses in the video sequence:
+Для построения выборки из распределения алгоритмом Метрополиса--Гастингса необходимо выбрать модель перехода $p_{Tr}(\overline{H}|H)$. Она описывает способ изменения положения суставов и значений параметра масштаба для построения новой гипотезы.
+
+Выбор модели перехода является ключевым этапом при построении алгоритма оптимизации энергии $E_{\setminus V}(P, S)$. Наиболее простым вариантом модели перехода является равномерное распределение на множестве допустимых гипотез, не зависящее от текущего состояния $H$. Тогда, согласно \eqref{eq::MH_acc}, вероятность принять новую гипотезу будет пропорциональна отношению вероятностей этих гипотез в модели $\tilde{p}(H)$. В таком случае алгоритм Метрополиса--Гастингса будет отвергать большинство гипотез $\overline{H}$, если текущая гипотеза $H$ соответствует локальному оптимуму.
+
+Влияние данной проблемы уменьшается, когда модель перехода строит гипотезы со схожей или большей вероятностью. Поэтому я предложил следующие варианты переходов:
 \begin{enumerate}
-	\item a random perturbation in human joint locations at the instant of time $t$;
-	\item a propagation of the human pose from the instant of time $t-1$ to the next instant of time;
-	\item a linear interpolation of the human pose in the interval $\left[t_1,t_2\right]$;
-	\item a replacement of the pose at the instance of time $t$ by one of hypothesis constructed by the algorithm of \cite{Park2011}.
+	\item случайное смещение суставов позы человека в момент времени $t$ в локальной окрестности их текущего положения;
+	\item присваивание параметрам позы и размера человека в момент времени $t$ их значений в момент времени $t-1$;
+	\item линейная интерполяция позы человека между моментами времени $\left[t_1,t_2\right]$;
+	\item использование одной из гипотез, построенных алгоритмом \cite{park2011n};
+	\item возврат к предыдущей гипотезе.
 \end{enumerate}
 
 All of the proposed steps require the time instance $t$ or the interval $\left[t_1,t_2\right]$ to be chosen. We want to notice that the choice of the interval is equivalent to choice of two instants of time. To speedup convergence we make the algorithm to prefer instances of time that have smaller confidence of the pose estimation correctness:
