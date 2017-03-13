@@ -145,14 +145,6 @@
 
 \label{subsec::model_analysis}
 
-Каждой функции энергии, описывающей модель позы человека, соответствует марковская сеть. От её свойств зависит сложность алгоритмов поиска оптимального значения модели. В общем случае поиск глобального оптимума в графических моделях осуществляется алгоритмом распространения доверия. Его вычислительная сложность зависит от количества допустимых состояний минимальной группы вершин, разделяющих графическую модель на две части. Если графическая модель является деревом, то сложность алгоритма квадратично зависит от количества допустимых состояний для каждой вершины. Примером такой графической модели является модель позы человека на изображении при условии известного параметра масштаба. Специальный вид парных потенциалов, позволил сократить сложность вывода в графической модели до линейной зависимости от количества допустимых положений суставов на изображении.
-
-К сожалению, при расширении этой модели, в марковской сети появляются циклы, а следовательно сложность поиска оптимального решения существенно возрастает. На рисунке \ref{} представлена графическая модель, соответствующая модели \cite{park2011n}. Её можно рассматривать как марковскую цепь первого порядка, где каждое состояние описывается множеством вершин одного кадра.
-
-Рассмотрим вычислительную сложность алгоритма поиска глобального минимума для такой марковской цепи. Если на кадре имеется $M$ возможных положений каждого сустав, то сложность алгоритма распространения доверия равна $\mathcal{O}(M^{K}T)$. Здесь существенно использован факт, что модель движения \eqref{eq::motion_model} является квадратичной формой, и для вычисления сообщений в сети может быть использован метод дистантного преобразования. Таким образом, сложность поиска оптимального множества поз линейно зависит от количества возможных поз человека на изображении. Так как значение параметра $M$ может превосходить $10^4$, а количество суставов исчисляться десятками, то алгоритм поиска точного решения оказывается не применим на практике. Уменьшив количество допустимых поз на кадре изображения, авторы \cite{park2011n} построили алгоритм поиска локального оптимума со сложностью $\mathcal{O}(HT)$, где $H$ "--- количество допустимых поз на одном кадре.
-
-Предложенная в данной работе модель является расширением \cite{park2011n} и содержит её в качестве частного случая. Алгоритм распространения правдоподобия не может быть применён для поиска глобального оптимума предложенной модели, так как потребует слишком больших вычислительных ресурсов. Также скрытое состояние $\Theta$ дополнительно содержит непрерывные параметры скорости суставов, то есть описанная модель является дискретно-непрерывной. Это не позволяет использовать алгоритм \cite{park2011n} напрямую.
-
 Для описания предложенного алгоритма оптимизации важно рассмотреть две задачи, связанные с функцией представленной функции энергии:
 \begin{enumerate}
 	\item определение скорости суставов при известных позе и росте человека человека в видео "--- $\argmin_{V} E(P, \Theta)$;
@@ -235,9 +227,15 @@
 	\item алгоритм построения множества наилучших гипотез позы человека на изображении, отличающихся не менее чем на заданную величину равна имеет сложность $\mathcal{O}(KM)$.
 \end{enumerate}
 
-\subsection{Предложенный метод}
+\subsubsection{Сложность поиска глобального оптимума}
 
-Алгоритм поиска глобального оптимума рассматриваемой функции энергии $E(P, \Theta)$ имеет вычислительную сложность, не допускающую использование его на практике. Также указанная функция энергии содержит непрерывные и дискретные параметры. Я предложил два алгоритма поиска оптимального значения построенной функции энергии. Первый алгоритм использует идею работы \cite{park2011n} для поиска локального оптимума, а второй "--- метод сэмплирования из распределения для уточнения результата.
+Каждой функции энергии, описывающей модель позы человека, соответствует марковская сеть. От её свойств зависит сложность алгоритмов поиска оптимального значения модели. В общем случае поиск глобального оптимума в графических моделях осуществляется алгоритмом распространения доверия. Его вычислительная сложность зависит от количества допустимых состояний минимальной группы вершин, разделяющих графическую модель на две части. Если графическая модель является деревом, то сложность алгоритма квадратично зависит от количества допустимых состояний для каждой вершины. Примером такой графической модели является модель позы человека на изображении при условии известного параметра масштаба. Специальный вид парных потенциалов, позволил сократить сложность вывода в графической модели до линейной зависимости от количества допустимых положений суставов на изображении.
+
+К сожалению, при расширении этой модели, в марковской сети появляются циклы, а следовательно сложность поиска оптимального решения существенно возрастает. На рисунке \ref{} представлена графическая модель, соответствующая модели \cite{park2011n}. Её можно рассматривать как марковскую цепь первого порядка, где каждое состояние описывается множеством вершин одного кадра.
+
+Рассмотрим вычислительную сложность алгоритма поиска глобального минимума для такой марковской цепи. Если на кадре имеется $M$ возможных положений каждого сустав, то сложность алгоритма распространения доверия равна $\mathcal{O}(M^{K}T)$. Здесь существенно использован факт, что модель движения \eqref{eq::motion_model} является квадратичной формой, и для вычисления сообщений в сети может быть использован метод дистантного преобразования. Таким образом, сложность поиска оптимального множества поз линейно зависит от количества возможных поз человека на изображении. Так как значение параметра $M$ может превосходить $10^4$, а количество суставов исчисляться десятками, то алгоритм поиска точного решения оказывается не применим на практике. Уменьшив количество допустимых поз на кадре изображения, авторы \cite{park2011n} построили алгоритм поиска локального оптимума со сложностью $\mathcal{O}(HT)$, где $H$ "--- количество допустимых поз на одном кадре.
+
+Предложенная в данной работе модель является расширением \cite{park2011n} и содержит её в качестве частного случая. Алгоритм распространения правдоподобия не может быть применён для поиска глобального оптимума предложенной модели, так как потребует слишком больших вычислительных ресурсов. Также скрытое состояние $\Theta$ дополнительно содержит непрерывные параметры скорости суставов, то есть описанная модель является дискретно-непрерывной. Это не позволяет использовать алгоритм \cite{park2011n} напрямую. Я предложил два алгоритма поиска оптимального значения построенной функции энергии. Первый алгоритм использует идею работы \cite{park2011n} для поиска локального оптимума, а второй "--- метод построения выборки из распределения для уточнения результата.
 
 \begin{algorithm}[t]
 	\SetAlgoLined %% Это соединяет линиями логические части 
@@ -255,7 +253,9 @@
 	
 	\While{ $r > 1$ }{
 		
-		$t \leftarrow randint(N)$;
+		$E_0 \leftarrow E(P,\Theta)$;
+		
+		\For{$t=\overline{1,T})$} {
 		
 		$\left\{\left(\overline{P}_k^t, \overline{s}_k^t \right)\right\}_k \leftarrow N\_best\left(E(P^t, s^t | P_{\setminus t}, \Theta_{\backslash s^t}), N, r \right)$;
 		
@@ -268,21 +268,21 @@
 			$\overline{V}_k \leftarrow \argmin_V {E(V|\overline{P}_k, {\overline{\Theta}_{k,\backslash V}})}$;
 		}
 		
-		$\left(\widehat{P}, \widehat{\Theta}\right) = \argmin_{\overline{P}_k, \overline{\Theta}_k}{\left\{E(\overline{P}_k, \overline{\Theta}_k)\right\}}$;
-		
-		\If{$E(\widehat{P}, \widehat{\Theta}) = E(P, \Theta)$}{
+		$\left(P, \Theta\right) \leftarrow \argmin_{\overline{P}_k, \overline{\Theta}_k}{\left\{E(\overline{P}_k, \overline{\Theta}_k)\right\}}$;
+		}
+		\If{$E(P, \Theta) = E_0$}{
 			
 			$r \leftarrow \frac{r}{2}$;
 			
 		}
-		
-		$\left(P, \Theta\right) \leftarrow \left(\widehat{P}, \widehat{\Theta}\right)$;
-		
+
 	}
 	
 	\caption{Итеративный алгоритм построения позы человека в видео.}
 	\label{alg:generalInit}
 \end{algorithm}
+
+\subsection{Детерминированный алгоритм}
 
 Рассмотрим первый из предложенных алгоритмов. Его псевдокод представлен на листинге \ref{alg:generalInit}. 
 
@@ -294,9 +294,187 @@
 
 Метод построения гипотез позы человека на изображении, предложенный в работе \cite{park2011n}, зависит от двух гиперпараметров: 1) радиуса $r$, определяющего минимальное различие между построенными гипотезами и 2) количества гипотез $N$, которое необходимо построить. Большое значение радиуса $r$ позволяет получить существенно отличающиеся гипотезы позы и подходит для работы в случае неверно определённого значения скорости. Малые значения радиуса $r$ позволяют производить локальный поиск позы в окрестности предыдущего решения. Поэтому в предложенном алгоритме этот параметр понижается с течением времени.
 
-Алгоритм \ref{alg:generalInit} находит локальный минимум функции энергии $E(P, \Theta)$. Одной из ключевых проблем алгоритма является обновление позы человека только на одном кадре в течении одной итерации. Поэтому алгоритм не может покинуть локального минимума, где поза человека была неверно определена на некотором сегменте времени. Чтобы решить эту проблему был разработан стохастический алгоритм для уточнения результатов.
+Поскольку функция энергии $E(P, \Theta)$ может содержать несколько локальных минимумов, алгоритмы локальной оптимизации не могут гарантировать нахождения оптимального оптимума. Детерминированный алгоритм \ref{alg:generalInit} находит локальный минимум функции энергии $E(P, \Theta)$. Одной из ключевых проблем алгоритма является обновление позы человека кадр за кадром. Например, алгоритм не может покинуть локального минимума, где параметр размера позы человека, а следовательно и его поза, был неверно определен на некотором сегменте времени. Чтобы решить эту проблему был разработан стохастический алгоритм для уточнения результатов.
 
+\subsection{Стохастический алгоритм}
 
+Рассмотрим функцию $E_{\setminus V}(P, S) = \max_V{E(P, \Theta)}$, зависящую только от позы человека и параметров его размера. Важно заметить, что данная функция определена на дискретном множестве поз человека и допустимых значений размеров. Таким образом, эта функция задает ненормированное ненормированную вероятность на множестве возможных поз людей в видео $\tilde{p}(P, S) = \exp(-E_{\setminus V}(P, S))$. 
+
+Предложенный алгоритм использует это представление для построения выборки из распределения $\tilde{p}(P, S)$ по схеме марковских цепей (MCMC). Построение выборки позволяет при длительном сэмплировании получить прецеденты из разных мод распределения $\tilde{p}(P, S)$. Таким образом, даже используя инициализацию из локального оптимума, предложенный алгоритм может найти лучшую гипотезу позы человека в видео. Гипотеза, обладающая наименьшим значением энергии, выбирается в качестве результата работы алгоритма. В дальнейшем в рамках данного подраздела под гипотезой я буду понимать текущее значение позы и параметров размера человека в видео:
+\begin{equation}
+	H = \left(P, S\right)
+\end{equation}
+
+Существует множество способов построения выборки из распределения. Наиболее распространенные из них алгоритмы Гиббса и Метрополиса--Гастингса. Поскольку алгоритм Метрополиса--Гастингса позволяет обновлять группу параметров состояния модели (например, позу человека на нескольких кадрах одновременно), то он был выбран для построения выборки.
+
+Для построения выборки алгоритмом Метрополиса--Гастингса необходимо также задать модель перехода $p_{Tr}(\overline{H}|H)$. Она описывает способ построения новой гипотезы позы $\overline{H}$ из предыдущей $H$. Согласно алгоритму Метрополиса--Гастингса новая гипотеза принимается с вероятностью $p_{Acc}(\overline{H}|H)$:
+\begin{equation}
+p_{Acc}(\overline{H}|H) = \min{\left(\frac
+	{\tilde{p}(\overline{H}) p_{Tr}(H|\overline{H})}
+	{\tilde{p}(H) p_{Tr}(\overline{H}|H)}, 1\right)}
+\end{equation}
+
+Важно отметить, что алгоритм Метрополиса--Гастингса не требует вычисление нормировочной константы распределения $\tilde{p}$. Более того для построения выборки достаточно иметь способ вычислить значение вероятности лишь отдельных гипотез. Это позволит использовать метод сэмплирования для оптимизации также и более сложных моделей позы человека в видео, включающих глобальные параметры внешности такие, как цвет одежды и его комплекцию.
+
+The sampling algorithm requires the transition model $p(Pa'|Pa_{l-1})$ to sample from the specified distribution. All of the proposed steps of the transition model change only the pose joints locations and the scale parameters. Given the joint's locations we can optimally select hidden state values, as will be described in the next section.
+
+In our experiments we use several types of steps to construct a new hypothesis of a set of human poses in the video sequence:
+\begin{enumerate}
+	\item a random perturbation in human joint locations at the instant of time $t$;
+	\item a propagation of the human pose from the instant of time $t-1$ to the next instant of time;
+	\item a linear interpolation of the human pose in the interval $\left[t_1,t_2\right]$;
+	\item a replacement of the pose at the instance of time $t$ by one of hypothesis constructed by the algorithm of \cite{Park2011}.
+\end{enumerate}
+
+All of the proposed steps require the time instance $t$ or the interval $\left[t_1,t_2\right]$ to be chosen. We want to notice that the choice of the interval is equivalent to choice of two instants of time. To speedup convergence we make the algorithm to prefer instances of time that have smaller confidence of the pose estimation correctness:
+\begin{equation*}
+	\begin{aligned}
+		\xi(t) &= \Phi(P_t) + \frac{1}{2} (\Psi(P_t, P_{t-1}) + \Psi(P_{t+1}, P_t)) \\
+		p(t) &\propto \underset{\tau}{\max} \xi(\tau) - \xi(t)
+	\end{aligned}
+\end{equation*}
+
+The first step type adds a small perturbations in the human joint locations and scale parameter at the instance of time $t$. This modification has the following form:
+\begin{equation} \label{eq::simple_transition}
+	\begin{aligned}
+		{Pos_t^j}' &= Pos_t^j + \beta S_t; \\
+		{S_t}' &= S_t + \gamma \\
+		\beta &\sim N(0, \beta_p^{-1} I_{2 \times 2}) \\
+		\gamma &\sim N(0, \gamma_p^{-1}) \\
+	\end{aligned}
+\end{equation}
+
+The second step type modifies a human pose at the instance of time $t$ by the propagation of its pose from the previous instance of time and addition a normally distributed noise according to  (\ref{eq::simple_transition}). It uses the motion parameters to construct more likely hypothesis. For the first pose in the input video sequence this type of steps is equal to the previous one.
+
+The third step type modifies a set of the human poses in the interval $\left[t_1, t_2\right]$. All poses inside the interval are constructed by a linear interpolation between the poses directly preceding and following the interval.
+
+The fourth step type exploits only a set of hypotheses from the constructed by the human pose estimation algorithm in the still frame. It replaces a pose at instant of time $t$ with one of hypotheses from the constructed set. It prefers hypotheses that match the proposed temporal context, i.e. minimize $\Psi(P_t, P_{t-1})$ + $\Psi(P_{t+1}, P_t)$.
+
+\begin{figure}[t]
+	\begin{center}
+		\begin{tabular}{cc}
+			\includegraphics[width=31.6mm]{human_pose/7.png} & \includegraphics[width=31.6mm]{human_pose/8.png} \\
+			(a) & (b)
+		\end{tabular}
+		\caption{Visualization of best constructed hypotheses. Area, where most hypotheses were found, are highlighted in green. In frame (a) detector find a lot of good hypotheses. In frame (b) detector cannot find a good set of hypotheses.}
+		\label{fig:good_bad_hypotheses}
+	\end{center}
+\end{figure}
+
+The fourth step type allows the inference algorithm to use high-scored poses found in a still frame. It speedups optimization in earlier stages. In figure \ref{fig:good_bad_hypotheses} we demonstrate an area, where the best pose hypotheses were found. In other hand, it makes the inference sensitive to mistakes of human pose detector in a still frame (fig. \ref{fig:good_bad_hypotheses} b). Therefore, we add the first three types of steps to deal with this problem.
+
+\subsubsection{Hidden State Estimation}
+
+As described above, the transition model modifies only joint locations and the scale parameters.
+Therefore the joint velocity values should be estimated. We choose the optimal values of the velocity parameters after each type of steps. In other words we chose values of the velocity parameters that maximize the score function:
+\[
+	V_l = \underset{V}{\mathop{argmax\:}} {Score(Pa)}
+\]
+
+Velocities of the different joints are independent given the joint locations in the proposed model of the human pose in a video. Consequently, the velocity parameters of each joints can be estimated separately.
+
+The form of the term $\psi_j(J_t^j, J_{t-1}^j, S_{t-1})$ implies that the function $Score(Pa)$ is factorized accordingly to the graphical model presented in the figure \ref{gm:velocity} given the human joint locations and the scale parameters. Therefore the velocity of each joint can be estimated efficiently.
+
+\begin{figure*}[!t] 
+	\begin{center}
+		\includegraphics{human_pose/5.pdf}
+%		\input{model_velocityModel}
+	\end{center}
+	\caption{A graphical model for a joint velocity estimation. Nodes of the observed variables are shown in gray.} \label{gm:velocity}
+\end{figure*}
+
+We break the term $\phi_j(J_t^j, J_{t-1}^j, S_{t-1})$ into unary and pairwise terms based on the joint velocity parameters (we skips parameters of the terms to simplify description):
+\[
+\psi_j = \psi_j^u(V_{t-1}^j) + \psi_j^p(V_{t-1}^j, V_t^j)
+\]
+The unary and the pairwise terms have the following form:
+\begin{equation*}
+	\begin{aligned}
+		\psi_j^u(V_{t-1}^j) &=
+			-\frac{{{E^u}_{t}^j}^T {\Sigma_p^p}^{-1} {E^u}_{t}^j} {2 S_{t-1}^2} \\ 
+		{E^u}_{t}^j &= \Delta Pos_{t-1}^j - A^u V_{t-1}^j \\
+		\Delta Pos_{t}^j &= Pos_{t}^j - A_p^u Pos_{t-1}^j \\
+		\psi_j^p &=
+			-\frac{{{E^p}_{t}^j}^T {\Sigma_p^v}^{-1} {E^p}_{t}^j} {2 S_{t-1}^2} \\ 
+		{E^p}_{t}^j &= V_t^j - A^p V_{t-1}^j \\
+		A &= \left[
+			\begin{array}{c|c}
+				A_p^u  & A^u \\ \hline
+				\Theta & A^p
+			\end{array}
+			\right]
+			A_p^u, A^u, A^p \in \mathbb{R}^{2 \times 2}
+	\end{aligned}
+\end{equation*}
+
+In this form the problem of a posterior velocity estimation is equal to the inference problem in the following Linear Dynamical System:
+\begin{equation*}
+	\begin{aligned}
+		\overline{V}^j &= \underset{V^j}{\mathop{argmax\:}} {p\left(\overline{V}^j | \Delta \overline{Pos}^j
+	\right)} \\ 
+		\Delta \overline{Pos}_t^j &\sim N(A^u \overline{V}_t^j, \Sigma_p^p) \\
+		\overline{V}_t^j &\sim N(A^p \overline{V}_{t-1}^j, \Sigma_p^v) \\
+		\overline{V}_1^j &\sim N(\mu_0, \Sigma_0) \\
+		\overline{V}_N^j &= A^p \overline{V}_{N-1}^j \\
+		\mu_0 &= \Theta_{2\times1} \\
+		\Sigma_0 &= \sigma_0 I_{2\times2} \\
+		\sigma_0 &\rightarrow \infty
+	\end{aligned}
+\end{equation*}
+where $\Delta \overline{Pos}^j$ is a set of observed normalized velocity values of the human joint, $\overline{V}^j$ is a set of normalized values of the hidden velocity parameters:
+\begin{equation*}
+	\begin{aligned}
+		\Delta \overline{Pos}_t^j &= \frac {\Delta Pos_t^j} {S_t} \\
+		\overline{V}_t^j &= \frac {V_t^j} {S_t} \\
+	\end{aligned}
+\end{equation*}
+
+We use the Kalman filter with the RTS smoother \cite{rauch1965maximum} to estimate the optimal values of the joint velocity.
+
+We simulate a prior distribution on each component of the velocity parameters in the first frame with the normal distribution with dispersion going to infinity. Consequently, it indicates an absence of a prior preferences on the velocity. It implies the following modifications in the Kalman filter:
+\begin{equation*}
+	\begin{aligned}
+		K_1 &= A^{uT} \left(A^u A^{uT}\right)^{-1} \\
+		\hat{\mu}_1^j &= K_1 \Delta \overline{Pos}_1^j \\
+		\hat{\Sigma}_1^j &= 
+		\left(A^{uT} A^u\right)^{-1} A^{uT} \Sigma_p^p \left(A^u A^{uT}\right)^{-1} A^u
+	\end{aligned}
+\end{equation*}
+
+We estimate the values of $\overline{V}_t^j$ by the Viterbi algorithm \cite{viterbi1967error} for LDS (alg. \ref{alg:velocity}). It means that the original velocity parameters has the following estimations:
+\[
+V_t^j|\Delta\overline{Pos}^j \sim N\left(S_t\mu_t^j, S_t^2 \Sigma_t^j \right)
+\]
+
+\begin{algorithm}[!t]
+	\KwData{$\Delta \overline{Pos}_1^j, \dots, \Delta \overline{Pos}_{N-1}^j$ are the observed data, $(A^u, A^p, \Sigma_p^p, \Sigma_p^v)$ are the model parameters}
+	\KwResult{$\mu_1^j, \dots, \mu_{N}^j, \Sigma_1^j, \dots, \Sigma_N^j$}
+	
+	// the Kalman filter\;
+	$K_1 = A^{uT} \left(A^u A^{uT}\right)^{-1}$\;
+	$\hat{\mu}_1^j = K_1 \Delta \overline{Pos}_1^j $\;
+	$\hat{\Sigma}_1^j =
+	\left(A^{uT} A^u\right)^{-1} A^{uT} \Sigma_p^p \left(A^u A^{uT}\right)^{-1} A^u$ \;
+	\For{t = 2,\dots, N-1}{
+		$\tilde{\Sigma}_{t-1} = A^p \hat{\Sigma}_{t-1}^j A^{pT} + \Sigma_p^v$\;
+		$K_{t} = \tilde{\Sigma}_{t-1} A^{uT} (A^u \tilde{\Sigma}_{t-1} A^{uT} + \Sigma_p^p)^{-1}$\;
+		$\hat{\mu}_t^j = A^p \hat{\mu}_{t-1}^j + K_t \left( \Delta \overline{Pos}_t^j -
+		A^u A^p \hat{\mu}_{t-1}^j \right)$\;
+		$\hat{\Sigma}_t^j = (I - K_{t} A^u) \tilde{\Sigma}_{t-1}$ \;
+	}
+	
+	// The RTS smoother\;
+	$\mu_{N-1}^j = \hat{\mu}_{N-1}^j$\;
+	$\Sigma_{N-1}^j = \hat{\Sigma_{N-1}^j}$\;
+	\For {t = N-2,\dots,1}{
+		$K_t=\hat{\Sigma}_t^j A^p \tilde{\Sigma}_t^{-1}$\;
+		$\mu_t^j = \hat{\mu}_t^j + K_t(\mu_{t+1}^j - A^p \hat{\mu}_t^j)$\;
+		$\Sigma_t^j = \hat{\Sigma}_t^j + K_t (\Sigma_{t+1}^j - \tilde{\Sigma}_t^j)K_t^T$\;
+	}
+	$\mu_N = A^p \mu_{N-1}^j$\;
+	$\Sigma_N^j = \Sigma_p^v + A^p \Sigma_{N-1}^j A^{pT}$\;
+	\caption{An algorithm of a joint velocity $V^j$ estimation.} \label{alg:velocity}
+\end{algorithm}
 
 \begin{algorithm}[H]
 	\SetAlgoLined %% Это соединяет линиями логические части 
