@@ -17,14 +17,13 @@
 % темы. Нужен он отдельным структурынм элемементом или нет ---
 % смотрите другие диссертации вашего совета, скорее всего не нужен.
 
-{\aim} данной работы является \ldots
+{\aim} данной работы является разработка методов повышения качества локализации, сопровождения и определения позы людей в видеопоследовательности за счёт использования информации о калибровке камеры и движении людей в сцене.
 
 Для~достижения поставленной цели необходимо было решить следующие {\tasks}:
 \begin{enumerate}
-  \item Исследовать, разработать, вычислить и~т.\:д. и~т.\:п.
-  \item Исследовать, разработать, вычислить и~т.\:д. и~т.\:п.
-  \item Исследовать, разработать, вычислить и~т.\:д. и~т.\:п.
-  \item Исследовать, разработать, вычислить и~т.\:д. и~т.\:п.
+  \item Разработать алгоритм локализации камеры, основанного на длительном наблюдении за объектами в сцене;
+  \item Разработать алгоритм расширения методов локализации людей на изображении информацией о семантики сцены для повышения их точности;
+  \item Разработать обобщение модели позы человека в видеопоследовательности, допускающее задание модели движения человека.
 \end{enumerate}
 
 
@@ -74,13 +73,20 @@
         \printbibliography[heading=countauthorvak, env=countauthorvak, keyword=biblioauthorvak, section=1]%
         \printbibliography[heading=countauthorconf, env=countauthorconf, keyword=biblioauthorconf, section=1]%
         \printbibliography[heading=countauthor, env=countauthor, keyword=biblioauthor, section=1]%
-        \publications\ Основные результаты по теме диссертации изложены в \arabic{citeauthor} печатных изданиях\nocite{bib1,bib2}, 
-        \arabic{citeauthorvak} из которых изданы в журналах, рекомендованных ВАК\nocite{vakbib1,vakbib2}, 
-        \arabic{citeauthorconf} "--- в тезисах докладов\nocite{confbib1,confbib2}.
+        \publications\ Основные результаты по теме диссертации изложены в \arabic{citeauthor} печатных изданиях, 
+        \arabic{citeauthorvak} из которых изданы в журналах, рекомендованных ВАК, 
+        \arabic{citeauthorconf} "--- в тезисах докладов.
+        
+        \nocite{konushin2017ispolzovanie48435059}
+        \nocite{gringauz2016estimation34131922}
+        \nocite{konushin2016further34136983}
+        \nocite{gringauz2015an-algorithm10904785}
+        \nocite{konushin2015an-improvement33378280}
+        \nocite{konushin2015human9613323}
+        \nocite{gringauz2014modification7624365}
+        \nocite{konushin2013improvement5112417}
     \end{refsection}
 }
 При использовании пакета \verb!biblatex! для автоматического подсчёта
 количества публикаций автора по теме диссертации, необходимо
 их здесь перечислить с использованием команды \verb!\nocite!.
-    
-
