@@ -70,10 +70,12 @@ sorting=none,% настройка сортировки списка литера
             \perdatasource{biblio/authorpapers.bib}
             \step[fieldset=keywords, fieldvalue={biblioauthornotvak,biblioauthor,bibliofull}]
         }
+        \iffalse
         \map[overwrite]{ % добавляем ключевые слова, чтобы различать источники
             \perdatasource{biblio/authorconferences.bib}
             \step[fieldset=keywords, fieldvalue={biblioauthorconf,biblioauthor,bibliofull}]
         }
+        \fi
 %        \map[overwrite]{% стираем значения всех полей series
 %            \step[fieldset=series, null]
 %        }
@@ -199,7 +201,7 @@ sorting=none,% настройка сортировки списка литера
 \addbibresource{biblio/othercites.bib}
 \addbibresource{biblio/authorpapersVAK.bib}
 \addbibresource{biblio/authorpapers.bib}
-\addbibresource{biblio/authorconferences.bib}
+%\addbibresource{biblio/authorconferences.bib}
 
 
 %% Счётчик использованных ссылок на литературу, обрабатывающий с учётом неоднократных ссылок
